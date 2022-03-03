@@ -1,0 +1,35 @@
+Thu Mar 03 12:40:13 CET 2022
+MaxEnt version 3.4.3
+Reading file absence
+readGrid: max memory 536870912, total allocated 262144000, free 136395440, used 125748560, increment 71819328
+Reading samples from presence
+Read samples: max memory 536870912, total allocated 262144000, free 189656368, used 72487632, increment -53260928
+Adding samples to background in feature space
+Command line used:  autorun -e /home/laura/Desktop/FRB/spermwhale/outputs/maxent/absence -o /home/laura/Desktop/FRB/spermwhale/outputs/maxent -s /home/laura/Desktop/FRB/spermwhale/outputs/maxent/presence -z
+Command line to repeat: java density.MaxEnt nowarnings noprefixes outputdirectory=/home/laura/Desktop/FRB/spermwhale/outputs/maxent samplesfile=/home/laura/Desktop/FRB/spermwhale/outputs/maxent/presence environmentallayers=/home/laura/Desktop/FRB/spermwhale/outputs/maxent/absence autorun novisible
+Species: species
+Layers: depth di_2500m di_Tren di_Trough di_coast di_guy di_seaM di_spRid slope
+Layertypes: Continuous Continuous Continuous Continuous Continuous Continuous Continuous Continuous Continuous
+outputdirectory: /home/laura/Desktop/FRB/spermwhale/outputs/maxent
+samplesfile: /home/laura/Desktop/FRB/spermwhale/outputs/maxent/presence
+environmentallayers: /home/laura/Desktop/FRB/spermwhale/outputs/maxent/absence
+autorun: true
+visible: false
+
+getSamples: max memory 536870912, total allocated 262144000, free 181790000, used 80354000, increment 7866368
+Making features
+makeFeatures: max memory 536870912, total allocated 262144000, free 176754480, used 85389520, increment 5035520
+species: 
+Regularization values: linear/quadratic/product: 0.050, categorical: 0.250, threshold: 1.000, hinge: 0.500
+682 samples
+Density: max memory 536870912, total allocated 262144000, free 162530368, used 99613632, increment 14224112
+linearPredictor: max memory 536870912, total allocated 262144000, free 162444896, used 99699104, increment 85472
+FeaturedSpace: max memory 536870912, total allocated 262144000, free 162444896, used 99699104, increment 0
+Sequential: max memory 536870912, total allocated 262144000, free 162444896, used 99699104, increment 0
+Initial loss: 9.276315360899716
+Time since start: 6.097
+500: time = 5.887000 loss = 8.561277
+Resulting gain: 0.7150384092319175
+Projecting...
+Writing file /home/laura/Desktop/FRB/spermwhale/outputs/maxent/species.csv
+Ending
