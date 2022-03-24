@@ -274,9 +274,9 @@ limit_rasters_to_background_points <- function(modelstack, bg, type){
 
   depth_rg <- range(as.data.frame(bg)["depth"], na.rm = TRUE)
   slope_rg <- range(as.data.frame(bg)["slope"], na.rm = TRUE)
-  di_1000m_rg <- range(as.data.frame(bg)["di_1000m"], na.rm = TRUE)
+  # di_1000m_rg <- range(as.data.frame(bg)["di_1000m"], na.rm = TRUE)
   di_2500m_rg <- range(as.data.frame(bg)["di_2500m"], na.rm = TRUE)
-  di_5000m_rg <- range(as.data.frame(bg)["di_5000m"], na.rm = TRUE)
+  # di_5000m_rg <- range(as.data.frame(bg)["di_5000m"], na.rm = TRUE)
   di_coast_rg <- range(as.data.frame(bg)["di_coast"], na.rm = TRUE)
   di_seaM_rg <- range(as.data.frame(bg)["di_seaM"], na.rm = TRUE)
   di_guy_rg <- range(as.data.frame(bg)["di_guy"], na.rm = TRUE)
@@ -286,9 +286,9 @@ limit_rasters_to_background_points <- function(modelstack, bg, type){
 
   modelStack_limited[["depth"]] <- raster::clamp(modelStack_limited[["depth"]], lower = depth_rg[1], upper = depth_rg[2], useValues = FALSE)
   modelStack_limited[["slope"]] <- raster::clamp(modelStack_limited[["slope"]], lower = slope_rg[1], upper = slope_rg[2], useValues = FALSE)
-  modelStack_limited[["di_1000m"]] <- raster::clamp(modelStack_limited[["di_1000m"]], lower = di_1000m_rg[1], upper = di_1000m_rg[2], useValues = FALSE)
+  # modelStack_limited[["di_1000m"]] <- raster::clamp(modelStack_limited[["di_1000m"]], lower = di_1000m_rg[1], upper = di_1000m_rg[2], useValues = FALSE)
   modelStack_limited[["di_2500m"]] <- raster::clamp(modelStack_limited[["di_2500m"]], lower = di_2500m_rg[1], upper = di_2500m_rg[2], useValues = FALSE)
-  modelStack_limited[["di_5000m"]] <- raster::clamp(modelStack_limited[["di_5000m"]], lower = di_5000m_rg[1], upper = di_5000m_rg[2], useValues = FALSE)
+  # modelStack_limited[["di_5000m"]] <- raster::clamp(modelStack_limited[["di_5000m"]], lower = di_5000m_rg[1], upper = di_5000m_rg[2], useValues = FALSE)
   modelStack_limited[["di_coast"]] <- raster::clamp(modelStack_limited[["di_coast"]], lower = di_coast_rg[1], upper = di_coast_rg[2], useValues = FALSE)
   modelStack_limited[["di_seaM"]] <- raster::clamp(modelStack_limited[["di_seaM"]], lower = di_seaM_rg[1], upper = di_seaM_rg[2], useValues = FALSE)
   modelStack_limited[["di_guy"]] <- raster::clamp(modelStack_limited[["di_guy"]], lower = di_guy_rg[1], upper = di_guy_rg[2], useValues = FALSE)
@@ -305,6 +305,117 @@ limit_rasters_to_background_points <- function(modelstack, bg, type){
   return(modelStack_limited)
 
 }
+
+
+
+
+
+
+#' Helper function used by get_extra_extent to facilitate computations of convex hulls and Gower's distances
+#'
+#' @param calibration_data
+#' @param test_data
+#' @param var_name
+#' @param choice
+#'
+#' @return
+#' @export
+#'
+
+make_cfact <- function (calibration_data, test_data, var_name, choice) {
+
+
+  ## helper function to rescale predictor
+  rescale2 <- function (ynew, y) {
+
+    return ((ynew - mean (y, na.rm = TRUE)) / (sd (y, na.rm = TRUE)))
+
+  }
+
+  ## standardize new data to predict from
+  # this simplifies computation A LOT!
+  make_X <- function (calibration_data, test_data, var_name){
+    X <- sapply(var_name,
+                function (k) { rescale2 (ynew = test_data[, k],
+                                         y = calibration_data[, k]
+                )}
+    )
+    X <- as.data.frame (X)
+    names (X) <- var_name
+    return (X)
+  }
+  # compute counterfactuals
+  cfact <- WhatIf::whatif (formula = NULL,
+                           data = make_X (calibration_data = calibration_data, test_data = calibration_data, var_name),
+                           cfact = make_X (calibration_data = calibration_data, test_data = test_data, var_name),
+                           mc.cores = parallel::detectCores()/1.5,
+                           choice = choice)
+
+  # function to get the % of interpolations
+  prop_cfact <- function (cfact) {
+    return (round (100 * length (which (cfact$in.hull == TRUE)) / length (cfact$in.hull), 2))
+  }
+
+  return (list (cfact = cfact, interpolation = prop_cfact (cfact = cfact)))
+
+}
+
+
+
+
+
+
+
+
+#' get multidimensional extrapolation extent using background points as reference set and prediction region as test set
+#'
+#' @param variables
+#' @param bg.z
+#' @param type
+#'
+#' @return
+#' @export
+#'
+
+get_extra_extent <- function(variables, modelstack, bg.z, type) {
+
+  #define calibration datasets
+  cal <- bg.z[, variables]
+
+  #define test datasets from the raster stack
+  test <- do.call(cbind, lapply(1:length(variables), function(i) raster::rasterToPoints(modelstack[[variables[i]]])))
+  test <- as.data.frame(test)
+  test <- test[, c("x", "y", variables)]
+
+  #calculate extent based on gower distance
+  cfact1 <- make_cfact(calibration_data = na.omit(cal), test_data = na.omit(test), var_name = variables, choice = "both")
+
+  #assign results of cfact to test data (interpolation 1, extrapolation -1)
+  test_na <- na.omit(test)
+  test$cfact1 <- NA
+  test$cfact1[as.numeric (row.names(test_na))] <- ifelse (cfact1$cfact$in.hull, 1, -1)
+
+  #output map of interpolation vs extrapolation
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_tile (data = test, ggplot2::aes(x = x, y = y, fill = factor(cfact1))) +
+    ggplot2::xlab("Easting") +
+    ggplot2::ylab("Northing") +
+    ggplot2::theme(panel.background = ggplot2::element_rect(fill = "grey50"), panel.grid.major = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank()) +
+    ggplot2::theme(plot.title = ggplot2::element_text(size=10),
+          axis.title = ggplot2::element_text(size=6),
+          axis.text = ggplot2::element_text(size=6)) +
+    ggplot2::coord_equal() +
+    ggplot2::scale_fill_manual (name="", values= c("midnightblue","yellow1"), labels=c("Extra","Inter"), breaks=c("-1","1"), limits=c("-1","1")) +
+    ggplot2::theme(legend.text = ggplot2::element_text(size=8),
+          legend.title = ggplot2::element_text(size=8))
+
+  ggplot2::ggsave(here::here("outputs", paste0("map_inter_vs_extra_", type, ".png")), g, width = 9, height = 7)
+
+  return(test)
+
+}
+
+
 
 
 
@@ -390,20 +501,58 @@ plot_predictions <- function(wio, df_pred, type){
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
-    ggplot2::xlab("Combined model")+
+    ggplot2::xlab(paste(type, "model")) +
     ggplot2::labs(fill = 'Habitat \nsuitability')+
     ggplot2::theme(legend.position = "right",
                    legend.justification = "left",
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
 
-  ggplot2::ggsave(here::here("outputs", paste0("predictions_", type, ".png")), g, width = 9, height = 7)
+  ggplot2::ggsave(here::here("outputs", paste0("map_predictions_", type, ".png")), g, width = 9, height = 7)
 
   return(g)
 
 }
 
 
+
+
+
+#' Plot predictions with extrapolation extent
+#'
+#' @param wio
+#' @param df_pred
+#' @param type
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_with_extra <- function(wio, df_pred, type, df_test){
+
+  #select extrapolation data points
+  df_test <- subset(df_test, cfact1 == -1)
+
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab(paste(type, "model")) +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+  ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, ".png")), g, width = 9, height = 7)
+
+  return(g)
+
+}
 
 
 #' test for "residual" mpa effect
