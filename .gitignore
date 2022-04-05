@@ -16,5 +16,8 @@ data/
 man/
 
 
-#ignire rhistory
+#ignore rhistory
 .Rhistory
+
+#ignore rdata
+*.RData

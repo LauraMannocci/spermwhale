@@ -96,9 +96,39 @@ points(SPMod,col="black", pch=20)
 dev.off()
 
 # map rasters
-jpeg(here::here("outputs", "rasters.jpeg"), width = 960, height = 960)
-par(mar=c(0,0,1,0))
-raster::plot(modelStack)
+
+p1 <- rasterVis::levelplot(modelStack[[1]], col.regions = rev(terrain.colors(255)), cuts=254, margin=FALSE,
+                           colorkey = list(title = "[m]",
+                                           height=1, width=1.4,
+                                           labels = list(cex = 1)),
+                           xlab = "", ylab = "", main = names(modelStack[[1]]))
+
+p2 <- rasterVis::levelplot(modelStack[[2]], col.regions = rev(terrain.colors(255)), cuts=254, margin=FALSE,
+                           colorkey = list(title = "[%]",
+                                           height=1, width=1.4,
+                                           labels = list(cex = 1)),
+                           xlab = "", ylab = "", main = names(modelStack[[2]]))
+
+p3 <- rasterVis::levelplot(modelStack[[3]], col.regions = rev(terrain.colors(255)), cuts=254, margin=FALSE,
+                           colorkey = list(title = "[km]",
+                                           height=1, width=1.4,
+                                           labels = list(cex = 1)),
+                           xlab = "", ylab = "", main = names(modelStack[[3]]))
+
+p4 <- rasterVis::levelplot(modelStack[[4]], col.regions = rev(terrain.colors(255)), cuts=254, margin=FALSE,
+                           colorkey = list(title = "[km]",
+                                           height=1, width=1.4,
+                                           labels = list(cex = 1)),
+                           xlab = "", ylab = "", main = names(modelStack[[4]]))
+
+p5 <- rasterVis::levelplot(modelStack[[5]], col.regions = rev(terrain.colors(255)), cuts=254, margin=FALSE,
+                           colorkey = list(title = "[km]",
+                                           height=1, width=1.4,
+                                           labels = list(cex = 1)),
+                           xlab = "", ylab = "", main = names(modelStack[[5]]))
+
+jpeg(here::here("outputs", "rasters.jpeg"), width = 1340, height = 960)
+gridExtra::grid.arrange(p1, p2, p3, p4, p5, ncol=3)
 dev.off()
 
 
@@ -448,13 +478,8 @@ df_pred <- rbind(df_predHis, df_predMod)
 ## read and plot mpas
 mpa_sf <- sf::read_sf(here::here("data", "mpa_sf2", "mpa_sf.shp"), stringsAsFactors=TRUE)
 
-# ggMPA <- ggMPA +
-#   ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
-#   ggplot2::theme(legend.position = "none", axis.title = ggplot2::element_blank(), panel.background = ggplot2::element_rect(fill = 'white'))
 
-
-
-### test for "residual" mpa effect
+### test for "residual" mpa effect with kruskall test
 
 df_mpaHis <- test_residual_mpa_effect(predHis, df_predHis, mpa_sf, "historical")
 df_mpaMod <- test_residual_mpa_effect(predMod, df_predMod, mpa_sf, "modern")
@@ -463,12 +488,12 @@ df_mpa <- rbind(df_mpaHis, df_mpaMod)
 df_mpa$type <- factor(df_mpa$type , levels=c("region", "mpa"))
 summary(df_mpa)
 
-### wilcox test
+### wilcox test (non-parametric alternative to paired t-test used to compare paired data)
 pairwise.wilcox.test(df_mpa$value, df_mpa$type, p.adjust.method = 'BH')
 
 
 
-### density plot
+### density plot of prediction distributions
 
 df_mpa <- df_mpa %>%
   dplyr::mutate(model = forcats::fct_relevel(model, levels = "modern", "historical"))
@@ -495,12 +520,18 @@ gMod <- plot_predictions(wio, df_predMod, "modern")
 gHis <- plot_predictions(wio, df_predHis, "historical")
 
 
+### plot predictions difference
+
+d <- plot_predictions_difference(wio, df_predHis, df_predMod)
+
+
 
 
 ### get multidimensional extrapolation extent - the next two lines took a few minutes to run on 50 threads
 
 df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
 df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
+
 
 
 # Plot predictions with extrapolation extent
@@ -510,29 +541,37 @@ gHis2 <- plot_predictions_with_extra(wio, df_predHis, "historical", df_extraHis)
 
 
 
+# Plot predictions with extrapolation extent and mpas
+
+gMod2 <- plot_predictions_with_extra_mpas(wio, df_predMod, "modern", df_extraMod, mpa_sf)
+gHis2 <- plot_predictions_with_extra_mpas(wio, df_predHis, "historical", df_extraHis, mpa_sf)
+
+
+
 ### save objects
 save(df_predMod, df_extraMod, df_predHis, df_extraHis, BgMod.z, BgHis.z, predHis, predMod, SPMod.x, SPHis.x, opt.seqMod, opt.seqHis, file = here::here("make.RData"))
 
 
 #------------------------------------------------------------------------------------------------------
 
+
+#read eez shapefile
 eez <- sf::st_read(here::here("data", "eez", "World_EEZ_v11_20191118_gpkg", "eez_v11.gpkg"))
 
 
 
 #Clip and plot predictions in eez and add violin plot to compare them
-
-plot_predictions_in_eez(eez, "Seychelles", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Madagascar", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Sri Lanka", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Mauritius", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Chagos", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Maldives", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Reunion", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Comoros", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Oman", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Yemen", predHis, predMod, wio)
-plot_predictions_in_eez(eez, "Somali", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Seychelles", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Madagascar", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Sri Lanka", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Mauritius", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Chagos", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Maldives", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Reunion", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Comoros", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Oman", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Yemen", predHis, predMod, SPMod, SPHis, wio)
+plot_predictions_in_eez(eez, "Somali", predHis, predMod, SPMod, SPHis, wio)
 
 
 

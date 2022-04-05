@@ -568,6 +568,42 @@ plot_predictions <- function(wio, df_pred, type){
 
 
 
+#' Plot predictions difference
+#'
+#' @param wio
+#' @param df_pred
+#' @param type
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_difference <- function(wio, df_predHis, df_predMod){
+
+  df_predMod$diff = df_predMod$value - df_predHis$value
+
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_predMod, ggplot2::aes(x = x, y = y, fill = diff), alpha=0.8) +
+    ggplot2::scale_fill_viridis_c(limits = c(-0.5, 1), option = "magma")+
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("") +
+    ggplot2::labs(fill = 'Difference \nmodern - \nhistorical')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+  ggplot2::ggsave(here::here("outputs", "map_predictions_difference.png"), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
+
 
 #' Plot predictions with extrapolation extent
 #'
@@ -606,7 +642,49 @@ plot_predictions_with_extra <- function(wio, df_pred, type, df_test){
 }
 
 
-#' test for "residual" mpa effect
+
+
+#' Plot predictions with extrapolation extent and mpas
+#'
+#' @param wio
+#' @param df_pred
+#' @param type
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
+
+  #select extrapolation data points
+  df_test <- subset(df_test, cfact1 == -1)
+
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    #add mpas
+    ggplot2::geom_sf(data = mpa, fill = "white", alpha = 0.1) +
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab(paste(type, "model")) +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+  ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, "_mpas.png")), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
+#' test for "residual" mpa effect with kruskall test
 #'
 #' @param pred
 #' @param df_pred
@@ -626,6 +704,7 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
   colnames(df_mpamod) <- c("value", "x", "y")
 
   ### kruskall tests of predictions in mpa vs all predictions
+  # non-parametric method for testing whether samples originate from the same distribution
   df_mpamod$type <- factor(c('mpa'))
   df_pred$type <- factor(c('region'))
   df_mpamod_pred <- rbind(df_pred, df_mpamod)
@@ -654,7 +733,7 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
 #' @export
 #'
 
-plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Modern, wio){
+plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Modern, obs_mod, obs_his, wio){
 
   if (eez_name == "Seychelles"){names_from_sh <- "Seychellois Exclusive Economic Zone"}
   if (eez_name == "Madagascar"){names_from_sh <- "Madagascan Exclusive Economic Zone"  }
@@ -667,8 +746,6 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Mode
   if (eez_name == "Oman"){names_from_sh <- "Omani Exclusive Economic Zone"  }
   if (eez_name == "Yemen"){names_from_sh <- "Yemeni Exclusive Economic Zone" }
   if (eez_name == "Somali"){names_from_sh <-"Somali Exclusive Economic Zone" }
-
-
 
 
 
@@ -693,6 +770,7 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Mode
   gHis <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = wio) +
     ggplot2::geom_tile(data = df_predHis, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_point(data = obs_his, ggplot2::aes(x = Lon, y = Lat, alpha = 0.6)) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
@@ -723,7 +801,8 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Mode
   gMod <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = wio) +
     ggplot2::geom_tile(data = df_predMod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
-    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::geom_point(data = obs_mod, ggplot2::aes(x = Lon, y = Lat, alpha = 0.6)) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab("Modern") +
@@ -754,21 +833,20 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Mode
                    axis.title.x = ggplot2::element_blank()) +
     ggplot2::scale_color_manual(values = c("#00BA38", "#F8766D"))
 
-#
-#   g <- cowplot::ggdraw() +
-#     cowplot::draw_plot(gHis, x = -0.02, y = .45, height = .5, width = .5) +
-#     cowplot::draw_plot(gMod, x = .49, y = .45, height = .5, width = .5) +
-#     cowplot::draw_plot(violin, x = .28, y = 0, height = .42, width = .42) +
-#     cowplot::draw_label(eez_name, x = 0.5,  y = 0.97,  size = 26)
-#
-#   ggplot2::ggsave(here::here("outputs", paste0("plot_predictions_in_", eez_name, ".jpeg")), g, width = 9, height = 7, bg = "white")
 
-
-  g <- cowplot::ggdraw() +
-    cowplot::draw_plot(gHis, x = -0.18, y = 0.1, height = .7, width = .7) +
-    cowplot::draw_plot(gMod, x = .16, y = 0.1, height = .7, width = .7) +
-    cowplot::draw_plot(violin, x = .69, y = 0.1, height = .7, width = .3) +
-    cowplot::draw_label(eez_name, x = 0.5,  y = 0.92,  size = 26)
+  if (eez_name == "Yemen"){
+    g <- cowplot::ggdraw() +
+      cowplot::draw_plot(gHis, x = 0, y = 0.1, height = .7, width = .31) +
+      cowplot::draw_plot(gMod, x = .35, y = 0.1, height = .7, width = .31) +
+      cowplot::draw_plot(violin, x = .69, y = 0.1, height = .7, width = .3) +
+      cowplot::draw_label(eez_name, x = 0.5,  y = 0.92,  size = 26)
+  }else{
+    g <- cowplot::ggdraw() +
+      cowplot::draw_plot(gHis, x = -0.18, y = 0.1, height = .7, width = .7) +
+      cowplot::draw_plot(gMod, x = .16, y = 0.1, height = .7, width = .7) +
+      cowplot::draw_plot(violin, x = .69, y = 0.1, height = .7, width = .3) +
+      cowplot::draw_label(eez_name, x = 0.5,  y = 0.92,  size = 26)
+  }
 
   ggplot2::ggsave(here::here("outputs", paste0("plot_predictions_in_", eez_name, ".jpeg")), g, width = 15.5, height = 5, bg = "white")
 
