@@ -129,6 +129,57 @@ select_best_model <- function(mod){
 
 
 
+#' plot partial curves (modified function maxnet::plot.maxnet)
+#'
+#' @param x
+#' @param vars
+#' @param common.scale
+#' @param type
+#' @param ylab
+#' @param plot
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+
+plot_partial_curves <- function (x, vars = names(x$samplemeans), common.scale = T,
+                                 type = c("link", "exponential", "cloglog", "logistic"),
+                                 ylab = NULL, plot = TRUE, ...){
+
+  type <- match.arg(type)
+  nc <- ceiling(sqrt(length(vars)))
+  nr <- ceiling(length(vars)/nc)
+
+  opar = graphics::par(no.readonly = TRUE)
+  on.exit(graphics::par(opar))
+  graphics::par(mfrow = c(nr, nc), mar = c(5, 5, 4, 2) + 0.1)
+
+  ylim = NULL
+  if (common.scale && (type == "link" || type == "exponential")) {
+    vals <- do.call(c, lapply(vars, function(v) maxnet::response.plot(x,
+                                                                      v, type, plot = F)$pred))
+    ylim = c(min(vals), max(vals))
+  }
+  if (type == "cloglog" || type == "logistic")
+    ylim = c(0, 1)
+
+
+  if (plot) {
+    for (v in vars) {
+      maxnet::response.plot(x, v, type, ylim = ylim, ylab = ylab, ...)
+    }
+  }
+
+
+  res = list()
+  for (v in vars) {
+    res[[v]] = maxnet::response.plot(x, v, type, ylim = ylim, plot = FALSE)
+  }
+
+  invisible(res)
+
+}
 
 
 
@@ -583,6 +634,144 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
   print(kruskal.test(value ~ type, data = df_mpamod_pred))
 
   return(df_mpamod_pred)
+
+}
+
+
+
+
+
+
+#' Clip and plot predictions in eez and add violin plot to compare them
+#'
+#' @param eez_sh ...
+#' @param eez_name ...
+#' @param pred_Historical ...
+#' @param pred_Modern ...
+#' @param wio ...
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_in_eez <- function(eez_sh, eez_name, pred_Historical, pred_Modern, wio){
+
+  if (eez_name == "Seychelles"){names_from_sh <- "Seychellois Exclusive Economic Zone"}
+  if (eez_name == "Madagascar"){names_from_sh <- "Madagascan Exclusive Economic Zone"  }
+  if (eez_name == "Mauritius"){names_from_sh <- "Mauritian Exclusive Economic Zone"}
+  if (eez_name == "Chagos"){names_from_sh <- "Chagos Archipelago Exclusive Economic Zone"}
+  if (eez_name == "Maldives"){names_from_sh <- "Maldives Exclusive Economic Zone"}
+  if (eez_name == "Sri Lanka"){names_from_sh <- "Sri Lankan Exclusive Economic Zone"}
+  if (eez_name == "Reunion"){names_from_sh <- "Réunion Exclusive Economic Zone"}
+  if (eez_name == "Comoros"){names_from_sh <- "Comoran Exclusive Economic Zone"}
+  if (eez_name == "Oman"){names_from_sh <- "Omani Exclusive Economic Zone"  }
+  if (eez_name == "Yemen"){names_from_sh <- "Yemeni Exclusive Economic Zone" }
+  if (eez_name == "Somali"){names_from_sh <-"Somali Exclusive Economic Zone" }
+
+
+
+
+
+  #select eez polygon
+  eez_sh %>%
+    dplyr::filter(GEONAME == names_from_sh) -> eez
+
+  #mask rasters with eez polygon
+  predHis <- raster::mask(pred_Historical, eez)
+  predMod <- raster::mask(pred_Modern, eez)
+
+  ###Historical
+
+  #convert to dataframe
+  type <- "Historical"
+  df_predHis <- as(predHis, "SpatialPixelsDataFrame")
+  df_predHis <- as.data.frame(df_predHis)
+  colnames(df_predHis) <- c("value", "x", "y")
+  df_predHis$type <- factor(c(type))
+
+  #make map
+  gHis <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_predHis, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
+    ggspatial::fixed_plot_aspect(ratio = 1) +
+    ggplot2::ylab("") +
+    ggplot2::xlab("Historical") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+  ###Modern
+
+  #convert to dataframe
+  type <- "Modern"
+  df_predMod <- as(predMod, "SpatialPixelsDataFrame")
+  df_predMod <- as.data.frame(df_predMod)
+  colnames(df_predMod) <- c("value", "x", "y")
+  df_predMod$type <- factor(c(type))
+
+
+  #make map
+  gMod <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_predMod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("Modern") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+
+  #violin plot
+  pred <- rbind(df_predHis, df_predMod)
+  violin <- ggplot2::ggplot(pred, ggplot2::aes(x = type, y = value, color = type)) +
+    ggplot2::geom_violin() +
+    ggplot2::geom_boxplot(width = 0.1, fill = "white") +
+    ggplot2::ylab("") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+                   legend.position = "none",
+                   axis.text.y = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(size = 16, face = "bold"),
+                   axis.title = ggplot2::element_text(size = 16),
+                   axis.title.x = ggplot2::element_blank()) +
+    ggplot2::scale_color_manual(values = c("#00BA38", "#F8766D"))
+
+#
+#   g <- cowplot::ggdraw() +
+#     cowplot::draw_plot(gHis, x = -0.02, y = .45, height = .5, width = .5) +
+#     cowplot::draw_plot(gMod, x = .49, y = .45, height = .5, width = .5) +
+#     cowplot::draw_plot(violin, x = .28, y = 0, height = .42, width = .42) +
+#     cowplot::draw_label(eez_name, x = 0.5,  y = 0.97,  size = 26)
+#
+#   ggplot2::ggsave(here::here("outputs", paste0("plot_predictions_in_", eez_name, ".jpeg")), g, width = 9, height = 7, bg = "white")
+
+
+  g <- cowplot::ggdraw() +
+    cowplot::draw_plot(gHis, x = -0.18, y = 0.1, height = .7, width = .7) +
+    cowplot::draw_plot(gMod, x = .16, y = 0.1, height = .7, width = .7) +
+    cowplot::draw_plot(violin, x = .69, y = 0.1, height = .7, width = .3) +
+    cowplot::draw_label(eez_name, x = 0.5,  y = 0.92,  size = 26)
+
+  ggplot2::ggsave(here::here("outputs", paste0("plot_predictions_in_", eez_name, ".jpeg")), g, width = 15.5, height = 5, bg = "white")
+
 
 }
 

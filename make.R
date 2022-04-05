@@ -4,6 +4,11 @@
 devtools::load_all()
 
 
+
+#reload rdata
+#load(here::here("make.RData"))
+
+
 ####################  READ PRESENCE DATA
 
 # read and clean historical data
@@ -45,14 +50,14 @@ depth.m <- read_bathy_data("depth")
 slope.per <- read_bathy_data("slope")
 di_1000.km <- read_bathy_data("di_1000m")
 di_seaM.km <- read_bathy_data("di_seaM")
-di_guy.km <- read_bathy_data("di_guy")
-di_trough.km <- read_bathy_data("di_Trough")
-di_tren.km <- read_bathy_data("di_Tren")
-di_rid.km <- read_bathy_data("di_rid")
+# di_guy.km <- read_bathy_data("di_guy")
+# di_trough.km <- read_bathy_data("di_Trough")
+# di_tren.km <- read_bathy_data("di_Tren")
+# di_rid.km <- read_bathy_data("di_rid")
 di_spRid.km <- read_bathy_data("di_spRid")
 
 # stack all predictor rasters into a single stack
-modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_guy.km, di_trough.km, di_tren.km, di_rid.km, di_spRid.km), quick=TRUE)
+modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
 
 # reduce resolution by a factor of 10 to decrease processing time
 modelStack <- raster::aggregate(modelStack, fact = 10)
@@ -63,7 +68,7 @@ write.csv(cor, here::here("outputs", "raster_correlations.csv"))
 
 # stack again after removing
 # di_rid.km due to cor >.7 with di_seaM -> di_rid removed
-modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_guy.km, di_trough.km, di_tren.km, di_spRid.km), quick=TRUE)
+modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
 
 # reduce again resolution by a factor of 10 to decrease processing time
 modelStack <- raster::aggregate(modelStack, fact = 20)
@@ -121,7 +126,7 @@ model.extent <- raster::extent(26.25, 84.75, -40.25, 25.25) #Extent defined by t
 
 
 #Historical data: get random background points in whole region
-BgHis <- get_random_points(modelStack, model.extent, SPHis, 10000)
+BgHis <- get_random_points(modelStack, model.extent, SPHis, 5000)
 
 
 
@@ -171,7 +176,7 @@ points(SPMod, col=2, cex = 0.1)
 
 
 # create a raster file on the basis of survey points density
-BgMod <- create_background_points_from_survey(modelStack, abs, 10000)
+BgMod <- create_background_points_from_survey(modelStack, abs, 5000)
 
 
 
@@ -226,14 +231,14 @@ cbHis <- checkerboard_partitioning(SPHis, SPHis.z, BgHis, BgHis.z, modelStack)
 SPMod.x <- evaluate_model(SPMod,
                           modelStack,
                           BgMod,
-                          list(fc = c("L"), rm = 1:5), #only linear fc
+                          list(fc = c("L"), rm = 1), #only linear fc / impose low penalty on model complexity
                           list(occs.grp = cbMod$occs.grp, bg.grp = cbMod$bg.grp),
                           "modern")
 
 SPHis.x <- evaluate_model(SPHis,
                           modelStack,
                           BgHis,
-                          list(fc = c("L"), rm = 1:5), #only linear fc or add others "LQ", "LQH", "H"
+                          list(fc = c("L"), rm = 1), #only linear fc /  impose low penalty on model complexity
                           list(occs.grp = cbHis$occs.grp, bg.grp = cbHis$bg.grp),
                           "historical")
 
@@ -284,7 +289,7 @@ coefsp <- ggplot2::ggplot(Coef, ggplot2::aes(x=name, y=value, color = type)) +
   ggplot2::xlab("Predictors") +
   ggplot2::ylab("Coefficient") +
   ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
-  ggplot2::scale_colour_manual(values = c("#619CFF", "#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+  ggplot2::scale_colour_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
                                                                                                           label.position="left", label.hjust = 0.5, label.vjust = 0,
                                                                                                           label.theme = ggplot2::element_text(angle = 0)))
 
@@ -301,7 +306,7 @@ coefBar <- ggplot2::ggplot(Coef, ggplot2::aes(x=name, y=value, fill = type)) +
   ggplot2::xlab("Predictors") +
   ggplot2::ylab("Coefficient") +
   ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
-  ggplot2::scale_fill_manual(values = c("#619CFF", "#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+  ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
                                                                                                         label.position="left", label.hjust = 0.5, label.vjust = 0,
                                                                                                         label.theme = ggplot2::element_text(angle = 0)))
 
@@ -323,16 +328,69 @@ ggplot2::ggsave(here::here("outputs", "coefficients_barplot.png"), coefBar, widt
 # is an approximation of occurrence probability (with assumptions) bounded by 0 and 1
 # (Phillips et al. 2017).
 
-#par(mfrow=c(2,11), mar=c(0.1,0.1,0.1,0.1))
-
-
+# curves on separate plots
 jpeg(here::here("outputs", "partial_plot_historical.jpeg"), width = 1000, height = 700)
-plot(mod.seqHis, type = "cloglog")
+plot_partial_curves(mod.seqHis, type = "cloglog", lwd = 5, col = "#F8766D")
 dev.off()
 
 jpeg(here::here("outputs", "partial_plot_modern.jpeg"), width = 1000, height = 700)
-plot(mod.seqMod, type = "cloglog")
+plot_partial_curves(mod.seqMod, type = "cloglog", lwd = 5, col = "#00BA38")
 dev.off()
+
+
+
+# curves on the same plot
+
+dat_his = plot_partial_curves(mod.seqHis, type = "cloglog")
+dat_mod = plot_partial_curves(mod.seqMod, type = "cloglog")
+
+p1 <- ggplot2::ggplot(dat_his$depth, ggplot2::aes(y = pred, x = depth)) +
+        ggplot2::geom_line(color = "#00BA38", size = 2) +
+        ggplot2::geom_line(data = dat_mod$depth, color = "#F8766D",  size = 2) +
+        ggplot2::ylim(0,1) +
+        ggplot2::ylab("predictions") +
+       ggplot2::scale_x_continuous(limits=c(min(dat_his$depth, dat_mod$depth), 0)) +
+        ggplot2::theme_bw()
+
+p2 <- ggplot2::ggplot(dat_his$slope, ggplot2::aes(y = pred, x = slope)) +
+        ggplot2::geom_line(color = "#00BA38", size = 2) +
+        ggplot2::geom_line(data = dat_mod$slope, color = "#F8766D",  size = 2) +
+        ggplot2::ylim(0,1) +
+        ggplot2::ylab("predictions") +
+        ggplot2::scale_x_continuous(limits=c(0, max(dat_his$slope, dat_mod$slope))) +
+        ggplot2::theme_bw()
+
+p3 <- ggplot2::ggplot(dat_his$di_1000m, ggplot2::aes(y = pred, x = di_1000m)) +
+        ggplot2::geom_line(color = "#00BA38", size = 2) +
+        ggplot2::geom_line(data = dat_mod$di_1000m, color = "#F8766D",  size = 2) +
+        ggplot2::ylim(0,1) +
+        ggplot2::ylab("predictions") +
+        ggplot2::scale_x_continuous(limits=c(0, max(dat_his$di_1000m, dat_mod$di_1000m))) +
+        ggplot2::theme_bw()
+
+p4 <- ggplot2::ggplot(dat_his$di_seaM, ggplot2::aes(y = pred, x = di_seaM)) +
+        ggplot2::geom_line(color = "#00BA38", size = 2) +
+        ggplot2::geom_line(data = dat_mod$di_seaM, color = "#F8766D",  size = 2) +
+        ggplot2::ylim(0,1) +
+        ggplot2::ylab("predictions") +
+        ggplot2::scale_x_continuous(limits=c(0, max(dat_his$di_seaM, dat_mod$di_seaM))) +
+        ggplot2::theme_bw()
+
+p5 <- ggplot2::ggplot(dat_his$di_spRid, ggplot2::aes(y = pred, x = di_spRid)) +
+        ggplot2::geom_line(color = "#00BA38", size = 2) +
+        ggplot2::geom_line(data = dat_mod$di_spRid, color = "#F8766D",  size = 2) +
+        ggplot2::ylim(0,1) +
+        ggplot2::ylab("predictions") +
+        ggplot2::scale_x_continuous(limits=c(0, max(dat_his$di_spRid, dat_mod$di_spRid))) +
+        ggplot2::theme_bw()
+
+
+jpeg(here::here("outputs", "partial_plots.jpeg"), width = 1000, height = 700)
+gridExtra::grid.arrange(p1, p2, p3, p4, p5, coefBar, ncol=3)
+dev.off()
+
+
+
 
 
 
@@ -439,13 +497,10 @@ gHis <- plot_predictions(wio, df_predHis, "historical")
 
 
 
-### get multidimensional extrapolation extent
+### get multidimensional extrapolation extent - the next two lines took a few minutes to run on 50 threads
 
-df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM",  "di_guy",   "di_Trough",  "di_Tren", "di_spRid"), modelStack, BgMod.z, "modern")
-df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM",  "di_guy",   "di_Trough",  "di_Tren", "di_spRid"), modelStack, BgHis.z, "historical")
-
-# df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
-# df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
+df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
+df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
 
 
 # Plot predictions with extrapolation extent
@@ -456,6 +511,29 @@ gHis2 <- plot_predictions_with_extra(wio, df_predHis, "historical", df_extraHis)
 
 
 ### save objects
-save(df_predMod, df_extraMod, df_predHis, df_extraHis, BgMod.z, BgHis.z, predHis, predMod, SPMod.x, SPHis.x, opt.seqMod, opt.seqHis, file = here::here("make3.RData"))
+save(df_predMod, df_extraMod, df_predHis, df_extraHis, BgMod.z, BgHis.z, predHis, predMod, SPMod.x, SPHis.x, opt.seqMod, opt.seqHis, file = here::here("make.RData"))
+
+
+#------------------------------------------------------------------------------------------------------
+
+eez <- sf::st_read(here::here("data", "eez", "World_EEZ_v11_20191118_gpkg", "eez_v11.gpkg"))
+
+
+
+#Clip and plot predictions in eez and add violin plot to compare them
+
+plot_predictions_in_eez(eez, "Seychelles", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Madagascar", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Sri Lanka", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Mauritius", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Chagos", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Maldives", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Reunion", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Comoros", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Oman", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Yemen", predHis, predMod, wio)
+plot_predictions_in_eez(eez, "Somali", predHis, predMod, wio)
+
+
 
 

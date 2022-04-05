@@ -20,10 +20,7 @@ devtools::document()
 #utiliser les pipes dans les fonctions
 usethis::use_pipe()
 
-#declare package dependancies
-usethis::use_package("raster")
-usethis::use_package("here")
-usethis::use_package("maps")
-
 #to automatically add/remove dependencies
 rcompendium::add_dependencies(here::here())
+
+
