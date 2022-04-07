@@ -574,5 +574,62 @@ plot_predictions_in_eez(eez, "Yemen", predHis, predMod, SPMod, SPHis, wio)
 plot_predictions_in_eez(eez, "Somali", predHis, predMod, SPMod, SPHis, wio)
 
 
+plot_predictions_in_eez_extra(eez, "Seychelles", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Madagascar", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Sri Lanka", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Mauritius", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Chagos", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Maldives", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Reunion", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Comoros", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Oman", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Yemen", predHis, predMod, df_extraHis, df_extraMod, wio)
+plot_predictions_in_eez_extra(eez, "Somali", predHis, predMod, df_extraHis, df_extraMod, wio)
 
+
+plot_predictions_in_high_seas(eez, predHis, predMod, wio)
+plot_predictions_in_high_seas_extra(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
+
+plot_predictions_in_eezs_extra(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
+
+
+
+##extract predictions along transect (need to mask extrapolation zones)
+#https://rdrr.io/cran/inlmisc/man/ExtractAlongTransect.html
+
+x <- c(20, 90)
+y <- c(-10, -10)
+transect <- sp::SpatialLines(list(sp::Lines(sp::Line(cbind(x,y)), ID="a")))
+sp::proj4string(l) <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs")
+
+t <- inlmisc::ExtractAlongTransect(transect, predMod)
+
+
+
+segs <- inlmisc::ExtractAlongTransect(transect, predMod)
+for (i in seq_along(segs)) points(segs[[i]])
+
+dev.new()
+xlab <- "Distance along transect"
+ylab <- "Raster value"
+xlim <- range(vapply(segs, function(i) {
+  range(i@data[, "dist"])
+}, c(0, 0)))
+ylim <- range(vapply(segs, function(i) {
+  range(i@data[, "fc.L_rm.1"], na.rm = TRUE)
+}, c(0, 0)))
+inlmisc::PlotGraph(NA, xlab = xlab, ylab = ylab,
+          xlim = xlim, ylim = ylim, type = "n")
+cols <- inlmisc::GetColors(length(segs), scheme = "bright")
+for (i in seq_along(segs))
+  lines(segs[[i]]@data[, c("dist", "fc.L_rm.1")],
+        col = cols[i], lwd = 2)
+coords <- sp::coordinates(transect)
+n <- length(transect)
+d <- cumsum(c(0, as.matrix(dist((coords)))[cbind(1:(n - 1), 2:n)]))
+abline(v = d, lty = 2)
+mtext(sprintf("(%d, %d)", coords[1, 1], coords[1, 2]),
+      line = -1, adj = 0, cex = 0.7)
+mtext(sprintf("(%d, %d)", coords[n, 1], coords[n, 2]),
+      line = -1, adj = 1, cex = 0.7)
 

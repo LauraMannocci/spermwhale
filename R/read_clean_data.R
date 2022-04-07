@@ -327,7 +327,7 @@ get_observed_absence_points <- function(seg, occ){
   #transform occurrence to sf
   occ_sf <- sf::st_as_sf(x = occ,
                            coords = c("Lon", "Lat"),
-                           crs = "+proj=longlat +datum=WGS84 +no_defs ")
+                           crs = "+proj=longlat +datum=WGS84 +no_defs")
 
   #add id to segments
   seg_sf %>%
