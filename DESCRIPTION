@@ -11,6 +11,7 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports: 
+    base,
     broom,
     cowplot,
     devtools,
@@ -28,6 +29,7 @@ Imports:
     graphics,
     gridExtra,
     here,
+    inlmisc,
     kuenm,
     magrittr,
     mapdata,

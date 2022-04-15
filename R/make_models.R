@@ -129,6 +129,81 @@ select_best_model <- function(mod){
 
 
 
+
+
+
+
+#' make coefficients plot
+#'
+#' @param df_coef
+#'
+#' @return
+#' @export
+#'
+
+make_coefficients_plot <- function(df_coef){
+
+  p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, color = type)) +
+    ggplot2::geom_point() +
+    ggforce::facet_zoom(ylim = c(-0.0043, 0.002)) +
+    ggplot2::theme_light() +
+    ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position="right", text = ggplot2::element_text(size=16),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    ggplot2::xlab("Predictors") +
+    ggplot2::ylab("Coefficient") +
+    ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
+    ggplot2::scale_colour_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+                                                                                                 label.position="left", label.hjust = 0.5, label.vjust = 0,
+                                                                                                 label.theme = ggplot2::element_text(angle = 0)))
+
+  ggplot2::ggsave(here::here("outputs", "coefficients_plot.png"), p, width = 10, height = 7)
+
+  return(p)
+
+}
+
+
+
+
+
+
+
+
+
+#' make coefficients barplot
+#'
+#' @param df_coef
+#'
+#' @return
+#' @export
+#'
+
+make_coefficients_barplot <- function(df_coef){
+
+  p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, fill = type, width = 0.8)) +
+    ggplot2::geom_bar(position="dodge", stat="identity") +
+    ggforce::facet_zoom(ylim = c(-0.006, 0.002)) +
+    ggplot2::theme_light() +
+    ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position="right", text = ggplot2::element_text(size=16),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggplot2::xlab("Predictors") +
+    ggplot2::ylab("Coefficient") +
+    ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
+    ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+                                                                                               label.position="left", label.hjust = 0.5, label.vjust = 0,
+                                                                                               label.theme = ggplot2::element_text(angle = 0)))
+
+  ggplot2::ggsave(here::here("outputs", "coefficients_barplot.png"), p, width = 10, height = 7)
+
+  return(p)
+
+}
+
+
+
+
+
+
 #' plot partial curves (modified function maxnet::plot.maxnet)
 #'
 #' @param x
@@ -180,6 +255,52 @@ plot_partial_curves <- function (x, vars = names(x$samplemeans), common.scale = 
   invisible(res)
 
 }
+
+
+
+
+#' plot partial curves together
+#'
+#'
+#' @param dathis
+#' @param datmod
+#' @param var_name
+#'
+#' @return
+#' @export
+#'
+
+plot_partial_curves_together <- function (dathis, datmod, var_name){
+
+  # x limits
+  if (var_name == "depth"){
+    min <- min(dat_his[[var_name]], dat_mod[[var_name]])
+    max <- 0
+  }else{
+    min <- 0
+    max <- max(dat_his[[var_name]], dat_mod[[var_name]])
+  }
+
+  p <- ggplot2::ggplot(dat_his[[var_name]], ggplot2::aes(y = pred, x = get(var_name))) +
+    ggplot2::geom_line(color = "#00BA38", size = 2) +
+    ggplot2::geom_line(data = dat_mod[[var_name]], color = "#F8766D",  size = 2) +
+    ggplot2::ylim(0,1) +
+    ggplot2::ylab("predictions") +
+    ggplot2::xlab(var_name) +
+    ggplot2::scale_x_continuous(limits = c(min, max)) +
+    ggplot2::theme(text = ggplot2::element_text(size=20),
+                   panel.background = ggplot2::element_blank(),
+                   panel.grid.major = ggplot2::element_line(colour = "grey90"),
+                   axis.line = ggplot2::element_line(color="black"))
+
+  ggplot2::ggsave(here::here("outputs", paste0("partial_plots_together_", var_name, ".png")), p, width = 9, height = 7)
+
+  return(p)
+
+}
+
+
+
 
 
 
@@ -472,43 +593,6 @@ get_extra_extent <- function(variables, modelstack, bg.z, type) {
 
 
 
-#' Plot residuals with respect to combined model
-#'
-#' @param pred
-#' @param predcom
-#' @param wio
-#' @param type
-#'
-#' @return
-#' @export
-#'
-
-plot_residuals_wrt_combined <- function(pred, predcom, wio, type){
-
-  model <- lm(raster::getValues(pred) ~ raster::getValues(predcom), na.action=na.exclude)
-  res <- pred
-  res[] <- residuals.lm(model)
-  df_res <- as(res, "SpatialPixelsDataFrame")
-  df_res <- as.data.frame(df_res)
-  colnames(df_res) <- c("value", "x", "y")
-
-  gg <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_res, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
-    ggplot2::scale_fill_viridis_c(option = "inferno", limit = c(-0.34,0.71)) +
-    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
-    ggplot2::ylab("") +
-    ggplot2::xlab(paste(type, 'residuals')) +
-    ggplot2::theme(legend.position ="none")
-
-  ggplot2::ggsave(here::here("outputs", paste0("residuals_", type, ".png")), gg, width = 9, height = 7)
-
-  return(gg)
-
-}
-
-
-
 
 #' Convert predictions to dataframe
 #'
@@ -568,7 +652,7 @@ plot_predictions <- function(wio, df_pred, type){
 
 
 
-#' Plot predictions difference
+#' Plot predictions residuals
 #'
 #' @param wio
 #' @param df_pred
@@ -578,24 +662,40 @@ plot_predictions <- function(wio, df_pred, type){
 #' @export
 #'
 
-plot_predictions_difference <- function(wio, df_pred_his, df_pred_mod){
+plot_predictions_residuals <- function(wio, pred_his, pred_mod){
 
-  df_pred_mod$diff = df_pred_mod$value - df_pred_his$value
+  #get residuals of linear model
+  model <- lm(raster::getValues(pred_his) ~ raster::getValues(pred_mod), na.action=na.exclude)
+  res <- pred_his
+  res[] <- residuals.lm(model)
+
+  #get r squared
+  print("r-squared :")
+  print(summary(model)$r.squared)
+
+  #convert to dataframe for plotting
+  df_res <- as(res, "SpatialPixelsDataFrame")
+  df_res <- as.data.frame(df_res)
+  colnames(df_res) <- c("value", "x", "y")
 
   g <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = diff), alpha=0.8) +
-    ggplot2::scale_fill_viridis_c(limits = c(-0.5, 1), option = "magma")+
+    ggplot2::geom_tile(data = df_res, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::scale_fill_viridis_c(limits = c(-1.2, 0.6), option = "magma")+
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
-    ggplot2::xlab("") +
-    ggplot2::labs(fill = 'Difference \nmodern - \nhistorical')+
+    ggplot2::xlab("Residuals") +
+    ggplot2::labs(fill = 'Residuals')+
     ggplot2::theme(legend.position = "right",
                    legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 12),
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
 
-  ggplot2::ggsave(here::here("outputs", "map_predictions_difference.png"), g, width = 9, height = 7)
+  ggplot2::ggsave(here::here("outputs", "map_predictions_residuals.png"), g, width = 9, height = 7)
 
   return(g)
 
@@ -673,6 +773,10 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
     ggplot2::labs(fill = 'Habitat \nsuitability')+
     ggplot2::theme(legend.position = "right",
                    legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 12),
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
 
@@ -681,6 +785,80 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
   return(g)
 
 }
+
+
+
+#' compare predictions (removing extrapolation zones)
+#'
+#' @param pred_his
+#' @param df_extra_his
+#' @param pred_mod
+#' @param df_extra_mod
+#'
+#' @return
+#' @export
+#'
+
+compare_predictions_extra <- function(pred_his, df_extra_his, pred_mod, df_extra_mod){
+
+  ### historical
+
+  # convert extrapolation dataframe to raster
+  extra_his <- raster::rasterFromXYZ(df_extra_his[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra_his[extra_his == -1] <- NA
+  pred_his <- raster::mask(pred_his, extra_his)
+  df_pred_his <- as(pred_his, "SpatialPixelsDataFrame")
+  df_pred_his <- as.data.frame(df_pred_his)
+  colnames(df_pred_his) <- c("value", "x", "y")
+
+
+  ### modern
+
+  # convert extrapolation dataframe to raster
+  extra_mod <- raster::rasterFromXYZ(df_extra_mod[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra_mod[extra_mod == -1] <- NA
+  pred_mod <- raster::mask(pred_mod, extra_mod)
+  df_pred_mod <- as(pred_mod, "SpatialPixelsDataFrame")
+  df_pred_mod <- as.data.frame(df_pred_mod)
+  colnames(df_pred_mod) <- c("value", "x", "y")
+
+
+  ### bind dataframes
+  df_pred_his$type <- factor(c('his'))
+  df_pred_mod$type <- factor(c('mod'))
+  df <- rbind(df_pred_his, df_pred_mod)
+
+
+  ### calculating medians
+  print("median historical predictions:")
+  print(median(df_pred_his$value))
+  print("median modern predictions:")
+  print(median(df_pred_mod$value))
+
+
+  ### kruskall tests of predictions in mpa vs all predictions
+  # non-parametric method for testing whether samples originate from the same distribution
+  print(kruskal.test(value ~ type, data = df))
+
+
+
+  ### pearsons's correlation coefficients
+  predStack <- raster::stack(c(pred_his, pred_mod))
+  names(predStack) <- c("historical", "modern")
+  jnk <- raster::layerStats(predStack, 'pearson', na.rm=T)
+  corr_matrix <- jnk$'pearson correlation coefficient'
+  print("pearsons's correlation coefficients")
+  print(corr_matrix)
+
+
+
+
+}
+
 
 
 
@@ -716,6 +894,96 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
 
 }
 
+
+
+
+#' test for "residual" mpa effect with kruskall test (removing extrapolation zones)
+#'
+#' @param pred
+#' @param mpa_sf
+#' @param name
+#' @param df_extra
+#'
+#' @return
+#' @export
+#'
+
+test_residual_mpa_effect_extra <- function(pred, df_extra, mpa_sf, name){
+
+  # convert extrapolation dataframe to raster
+  extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra[extra == -1] <- NA
+  pred <- raster::mask(pred, extra)
+  df_pred <- as(pred, "SpatialPixelsDataFrame")
+  df_pred <- as.data.frame(df_pred)
+  colnames(df_pred) <- c("value", "x", "y")
+
+  # mask predictions with mpa and convert to dataframe
+  pred_mpa <- raster::mask(pred, mpa_sf)
+  df_pred_mpa <- as(pred_mpa, "SpatialPixelsDataFrame")
+  df_pred_mpa <- as.data.frame(df_pred_mpa)
+  colnames(df_pred_mpa) <- c("value", "x", "y")
+
+  #bind dataframes
+  df_pred_mpa$type <- factor(c('mpa'))
+  df_pred$type <- factor(c('region'))
+  df <- rbind(df_pred, df_pred_mpa)
+  df$model <- factor(name)
+
+  ### kruskall tests of predictions in mpa vs all predictions
+  # non-parametric method for testing whether samples originate from the same distribution
+  print(kruskal.test(value ~ type, data = df))
+
+  return(df)
+}
+
+
+
+
+
+#' Calculate median predictions in and out of mpas (removing extrapolation zones)
+#'
+#' @param pred
+#' @param df_extra
+#' @param mpa_sf
+#'
+#' @return
+#' @export
+#'
+
+calculate_median_predictions_in_out_mpa_extra <- function(pred, df_extra, mpa_sf){
+
+  # convert extrapolation dataframe to raster
+  extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra[extra == -1] <- NA
+  pred <- raster::mask(pred, extra)
+  df_pred <- as(pred, "SpatialPixelsDataFrame")
+  df_pred <- as.data.frame(df_pred)
+  colnames(df_pred) <- c("value", "x", "y")
+
+  # mask predictions with mpa and convert to dataframe (predictions in mpa)
+  pred_inmpa <- raster::mask(pred, mpa_sf)
+  df_pred_inmpa <- as(pred_inmpa, "SpatialPixelsDataFrame")
+  df_pred_inmpa <- as.data.frame(df_pred_inmpa)
+  colnames(df_pred_inmpa) <- c("value", "x", "y")
+
+  # inverse mask predictions with mpa and convert to dataframe (predictions outside mpa)
+  pred_outmpa <- raster::mask(pred, mpa_sf, inverse = TRUE)
+  df_pred_outmpa <- as(pred_outmpa, "SpatialPixelsDataFrame")
+  df_pred_outmpa <- as.data.frame(df_pred_outmpa)
+  colnames(df_pred_outmpa) <- c("value", "x", "y")
+
+  #calculating medians in and out mpa
+  print("median in mpa :")
+  print(median(df_pred_inmpa$value))
+  print("median oustide mpa :")
+  print(median(df_pred_outmpa$value))
+
+}
 
 
 
@@ -859,8 +1127,7 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_his, pred_mod, obs_mo
 
 
 
-#' Clip and plot predictions in eez and add violin plot to compare them - removing extrapolation zones
-#'
+#' Clip and plot predictions in eez and add violin plot to compare them (removing extrapolation zones)
 #' @param eez_sh ...
 #' @param eez_name ...
 #' @param pred_his ...
@@ -1179,7 +1446,7 @@ plot_predictions_in_high_seas <- function(eez_sh, pred_his, pred_mod, df_extra_h
 
 
 
-#' Clip and plot predictions in high seas and add violin plot to compare them - removing extrapolation zones
+#' Clip and plot predictions in high seas and add violin plot to compare them (removing extrapolation zones)
 #'
 #' @param eez_sh
 #' @param pred_his
@@ -1336,7 +1603,7 @@ plot_predictions_in_high_seas_extra <- function(eez_sh, pred_his, pred_mod, df_e
 
 
 
-#' Clip and plot predictions in eezs and add violin plot to compare them - removing extrapolation zones
+#' Clip and plot predictions in all eezs and add violin plot to compare them (removing extrapolation zones)
 #'
 #' @param eez_sh
 #' @param pred_his
