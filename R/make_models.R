@@ -182,16 +182,19 @@ make_coefficients_barplot <- function(df_coef){
 
   p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, fill = type, width = 0.8)) +
     ggplot2::geom_bar(position="dodge", stat="identity") +
-    ggforce::facet_zoom(ylim = c(-0.006, 0.002)) +
+    ggforce::facet_zoom(ylim = c(-0.0075, 0.0025), zoom.size = 1) +
     ggplot2::theme_light() +
-    ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position="right", text = ggplot2::element_text(size=16),
-                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1))+
-    ggplot2::xlab("Predictors") +
-    ggplot2::ylab("Coefficient") +
+    ggplot2::theme(legend.title = ggplot2::element_blank(),
+                   axis.title.x = ggplot2::element_blank(),
+                   axis.title.y = ggplot2::element_text(size=20),
+                   legend.position = "right",
+                   legend.text = ggplot2::element_text(size=24),
+                   axis.text.y = ggplot2::element_text(size=16),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 18)) +
+    ggplot2::ylab("Coefficients") +
     ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
     ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
-                                                                                               label.position="left", label.hjust = 0.5, label.vjust = 0,
-                                                                                               label.theme = ggplot2::element_text(angle = 0)))
+                                                                                               label.position="right"))
 
   ggplot2::ggsave(here::here("outputs", "coefficients_barplot.png"), p, width = 10, height = 7)
 
@@ -285,7 +288,7 @@ plot_partial_curves_together <- function (dathis, datmod, var_name){
     ggplot2::geom_line(color = "#00BA38", size = 2) +
     ggplot2::geom_line(data = dat_mod[[var_name]], color = "#F8766D",  size = 2) +
     ggplot2::ylim(0,1) +
-    ggplot2::ylab("predictions") +
+    ggplot2::ylab("Predictions") +
     ggplot2::xlab(var_name) +
     ggplot2::scale_x_continuous(limits = c(min, max)) +
     ggplot2::theme(text = ggplot2::element_text(size=20),
@@ -412,13 +415,15 @@ predictor_violin <- function(modhis, var, ylabel) {
     ggplot2::geom_violin() +
     ggplot2::geom_jitter(shape = 16, size = 1, position = ggplot2::position_jitter(0.2), alpha = 0.4) +
     ggplot2::geom_boxplot(width = 0.1, fill = "white") +
-    ggplot2::stat_summary(fun = mean, color = "black", geom="text", ggplot2::aes(label=round(..y.., digits=0))) +
+    ggplot2::stat_summary(fun = mean, color = "black", geom="text", size = 5, ggplot2::aes(label=round(..y.., digits=0))) +
     ggplot2::ggtitle(signif)+
+    ggplot2::xlab("") +
     ggplot2::ylab(ylabel) +
     ggplot2::theme_light() +
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 20),
                    legend.position = "none",
-                   axis.title.x = ggplot2::element_blank()) +
+                   axis.text = ggplot2::element_text(size = 20),
+                   axis.title = ggplot2::element_text(size = 20)) +
     ggplot2::scale_color_manual(values = c("#00BA38", "#F8766D"))
 
   ggplot2::ggsave(here::here("outputs", paste0("predictors_violin_", var, ".png")), p, width = 9, height = 7)
@@ -985,6 +990,43 @@ calculate_median_predictions_in_out_mpa_extra <- function(pred, df_extra, mpa_sf
 
 }
 
+
+
+#' Calculate median predictions in mpas vs in all region (removing extrapolation zones)
+#'
+#' @param pred
+#' @param df_extra
+#' @param mpa_sf
+#'
+#' @return
+#' @export
+#'
+
+calculate_median_predictions_in_mpa_all_region_extra <- function(pred, df_extra, mpa_sf){
+
+  # convert extrapolation dataframe to raster
+  extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra[extra == -1] <- NA
+  pred <- raster::mask(pred, extra)
+  df_pred <- as(pred, "SpatialPixelsDataFrame")
+  df_pred <- as.data.frame(df_pred)
+  colnames(df_pred) <- c("value", "x", "y")
+
+  # mask predictions with mpa and convert to dataframe (predictions in mpa)
+  pred_inmpa <- raster::mask(pred, mpa_sf)
+  df_pred_inmpa <- as(pred_inmpa, "SpatialPixelsDataFrame")
+  df_pred_inmpa <- as.data.frame(df_pred_inmpa)
+  colnames(df_pred_inmpa) <- c("value", "x", "y")
+
+  #calculating medians in and out mpa
+  print("median in mpa :")
+  print(median(df_pred_inmpa$value))
+  print("median all region :")
+  print(median(df_pred$value))
+
+}
 
 
 
@@ -1622,12 +1664,12 @@ plot_predictions_in_eezs_extra <- function(eez_sh, pred_his, pred_mod, df_extra_
   extra_mod <- raster::rasterFromXYZ(df_extra_mod[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
 
 
-  #mask predictions with eez to extract high seas
+  #mask predictions with eez to extract eez
   pred_his2 <- raster::mask(pred_his, eez)
   pred_mod2 <- raster::mask(pred_mod, eez)
 
 
-  #mask extrapolations with eez to extract high seas
+  #mask extrapolations with eez to extract eezs
   extra_his2 <- raster::mask(extra_his, eez)
   extra_mod2 <- raster::mask(extra_mod, eez)
 
@@ -1742,3 +1784,280 @@ plot_predictions_in_eezs_extra <- function(eez_sh, pred_his, pred_mod, df_extra_
 
 }
 
+
+
+
+#' Clip and plot predictions in high seas versus eezs with violin plot (removing extrapolation zones)
+#'
+#' @param eez_sh
+#' @param pred_his
+#' @param pred_mod
+#' @param wio
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pred_mod, df_extra_his, df_extra_mod, wio){
+
+  ########################## high seas ##########################
+
+  #convert extrapolation df to rasters
+  extra_his <- raster::rasterFromXYZ(df_extra_his[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+  extra_mod <- raster::rasterFromXYZ(df_extra_mod[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+
+  #inverse mask predictions with eez to extract high seas
+  pred_his_highsea <- raster::mask(pred_his, eez, inverse=T)
+  pred_mod_highsea <- raster::mask(pred_mod, eez, inverse=T)
+
+
+  #inverse mask extrapolations with eez to extract high seas
+  extra_his_highsea <- raster::mask(extra_his, eez, inverse=T)
+  extra_mod_highsea <- raster::mask(extra_mod, eez, inverse=T)
+
+
+  #remove remaining pixels along coastlines for predictions
+  wio2 <- sf::as_Spatial(wio)
+  wio3 <- raster::buffer(wio2, width = 0.5)
+  wio4 <- raster::crop(wio3, raster::extent(pred_his))
+  pred_his_highsea <- raster::mask(pred_his_highsea, wio4, inverse=T) #these are the predictions extracted in high seas
+  pred_mod_highsea <- raster::mask(pred_mod_highsea, wio4, inverse=T) #these are the predictions extracted in high seas
+
+
+  #remove remaining pixels along coastlines for extrapolations
+  extra_his_highsea <- raster::mask(extra_his_highsea, wio4, inverse=T) #these are the extrapolations extracted in high seas
+  extra_mod_highsea <- raster::mask(extra_mod_highsea, wio4, inverse=T) #these are the extrapolations extracted in high seas
+
+
+
+  #convert prediction rasters to dataframes
+  type <- "Historical hs"
+  df_pred_his_highsea <- as(pred_his_highsea, "SpatialPixelsDataFrame")
+  df_pred_his_highsea <- as.data.frame(df_pred_his_highsea)
+  colnames(df_pred_his_highsea) <- c("value", "x", "y")
+  df_pred_his_highsea$type <- factor(c(type))
+
+  type <- "Modern hs"
+  df_pred_mod_highsea <- as(pred_mod_highsea, "SpatialPixelsDataFrame")
+  df_pred_mod_highsea <- as.data.frame(df_pred_mod_highsea)
+  colnames(df_pred_mod_highsea) <- c("value", "x", "y")
+  df_pred_mod_highsea$type <- factor(c(type))
+
+
+
+  #convert extrapolation rasters to dataframes
+  type <- "Historical hs"
+  df_extra_his_highsea <- as(extra_his_highsea, "SpatialPixelsDataFrame")
+  df_extra_his_highsea <- as.data.frame(df_extra_his_highsea)
+  colnames(df_extra_his_highsea) <- c("value", "x", "y")
+  df_extra_his_highsea$type <- factor(c(type))
+
+  type <- "Modern hs"
+  df_extra_mod_highsea <- as(extra_mod_highsea, "SpatialPixelsDataFrame")
+  df_extra_mod_highsea <- as.data.frame(df_extra_mod_highsea)
+  colnames(df_extra_mod_highsea) <- c("value", "x", "y")
+  df_extra_mod_highsea$type <- factor(c(type))
+
+
+
+  #select extrapolation data points (-1)
+  df_extra_his_highsea <- subset(df_extra_his_highsea, value == -1)
+  df_extra_mod_highsea <- subset(df_extra_mod_highsea, value == -1)
+
+
+
+
+  #make map modern
+  gHis_highsea <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred_his_highsea, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_extra_his_highsea, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::coord_sf(xlim = c(raster::extent(pred_his_highsea)[1], raster::extent(pred_his_highsea)[2]), ylim = c(raster::extent(pred_his_highsea)[3], raster::extent(pred_his_highsea)[4]), expand = FALSE) +
+    ggspatial::fixed_plot_aspect(ratio = 1) +
+    ggplot2::ylab("") +
+    ggplot2::xlab("") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+
+  #make map historical
+  gMod_highsea <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred_mod_highsea, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_extra_mod_highsea, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::coord_sf(xlim = c(raster::extent(pred_mod_highsea)[1], raster::extent(pred_mod_highsea)[2]), ylim = c(raster::extent(pred_mod_highsea)[3], raster::extent(pred_mod_highsea)[4]), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+
+
+  ########################## eez ##########################
+
+  #mask predictions with eez to extract eez
+  pred_his_eez <- raster::mask(pred_his, eez)
+  pred_mod_eez <- raster::mask(pred_mod, eez)
+
+
+  #mask extrapolations with eez to extract eezs
+  extra_his_eez <- raster::mask(extra_his, eez)
+  extra_mod_eez <- raster::mask(extra_mod, eez)
+
+
+  #convert prediction rasters to dataframes
+  type <- "Historical eez"
+  df_pred_his_eez <- as(pred_his_eez, "SpatialPixelsDataFrame")
+  df_pred_his_eez <- as.data.frame(df_pred_his_eez)
+  colnames(df_pred_his_eez) <- c("value", "x", "y")
+  df_pred_his_eez$type <- factor(c(type))
+
+  type <- "Modern eez"
+  df_pred_mod_eez <- as(pred_mod_eez, "SpatialPixelsDataFrame")
+  df_pred_mod_eez <- as.data.frame(df_pred_mod_eez)
+  colnames(df_pred_mod_eez) <- c("value", "x", "y")
+  df_pred_mod_eez$type <- factor(c(type))
+
+
+
+  #convert extrapolation rasters to dataframes
+  type <- "Historical eez"
+  df_extra_his_eez <- as(extra_his_eez, "SpatialPixelsDataFrame")
+  df_extra_his_eez <- as.data.frame(df_extra_his_eez)
+  colnames(df_extra_his_eez) <- c("value", "x", "y")
+  df_extra_his_eez$type <- factor(c(type))
+
+  type <- "Modern eez"
+  df_extra_mod_eez <- as(extra_mod_eez, "SpatialPixelsDataFrame")
+  df_extra_mod_eez <- as.data.frame(df_extra_mod_eez)
+  colnames(df_extra_mod_eez) <- c("value", "x", "y")
+  df_extra_mod_eez$type <- factor(c(type))
+
+
+
+  #select extrapolation data points (-1)
+  df_extra_his_eez <- subset(df_extra_his_eez, value == -1)
+  df_extra_mod_eez <- subset(df_extra_mod_eez, value == -1)
+
+
+
+
+  #make map modern
+  gHis_eez <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred_his_eez, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_extra_his_eez, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::coord_sf(xlim = c(raster::extent(pred_his_eez)[1], raster::extent(pred_his_eez)[2]), ylim = c(raster::extent(pred_his_eez)[3], raster::extent(pred_his_eez)[4]), expand = FALSE) +
+    ggspatial::fixed_plot_aspect(ratio = 1) +
+    ggplot2::ylab("") +
+    ggplot2::xlab("") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+
+  #make map historical
+  gMod_eez <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_pred_mod_eez, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_extra_mod_eez, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::coord_sf(xlim = c(raster::extent(pred_mod_eez)[1], raster::extent(pred_mod_eez)[2]), ylim = c(raster::extent(pred_mod_eez)[3], raster::extent(pred_mod_eez)[4]), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("") +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 13),
+                   legend.title = ggplot2::element_text(size = 13),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 8),
+                   axis.title = ggplot2::element_text(size=16, face = "bold"),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+
+  ############################## combined violin plot ######################################
+
+  pred_highsea <- rbind(df_pred_his_highsea, df_pred_mod_highsea)
+  pred_eez <- rbind(df_pred_his_eez, df_pred_mod_eez)
+
+  cat("highseas to eez ratio in historical model", median(df_pred_his_highsea$value) / median(df_pred_his_eez$value), sep="\n")
+  cat("highseas to eez ratio in modern model", median(df_pred_mod_highsea$value) / median(df_pred_mod_eez$value), sep="\n")
+
+  violin <- ggplot2::ggplot(pred_highsea, ggplot2::aes(x = type, y = value, color = type)) +
+    #violin plot for high seas
+    ggplot2::geom_violin(width = 0.8) +
+    ggplot2::geom_boxplot(width = 0.1, fill = "white") +
+    #violin plot for eez
+    ggplot2::geom_violin(data = pred_eez, ggplot2::aes(x = type, y = value, color = type), width = 0.8) +
+    ggplot2::geom_boxplot(data = pred_eez, width = 0.1, fill = "white") +
+    ggplot2::ylab("Habitat suitability") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+                   legend.position = "none",
+                   axis.text.y = ggplot2::element_text(size = 16),
+                   axis.text.x = ggplot2::element_blank(),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.title.x = ggplot2::element_blank()) +
+    ggplot2::annotate(geom = "text", x = 1.5, y = -0.02, size = 10, label = "Historical", color = "#00BA38") +
+    ggplot2::annotate(geom = "text", x = 3.5, y = -0.02, size = 10, label = "Modern", color = "#F8766D") +
+    ggplot2::annotate(geom = "text", x = 1, y = 1.025, size = 8, label = "All eezs") +
+    ggplot2::annotate(geom = "text", x = 3, y = 1.025, size = 8, label = "All eezs") +
+    ggplot2::annotate(geom = "text", x = 2, y = 1.025, size = 8, label = "High seas") +
+    ggplot2::annotate(geom = "text", x = 4, y = 1.025, size = 8, label = "High seas") +
+    ggplot2::scale_color_manual(values = c(rep("#00BA38", 2), rep("#F8766D", 2)))
+
+
+
+  # multiplot
+  jpeg(here::here("outputs", "plot_predictions_high_seas_vs_eezs_extra_violin.jpeg"), width = 1500, height = 900)
+  cowplot::ggdraw() +
+    cowplot::draw_plot(gHis_eez, x = -0.08, y = 0.47, height = .449, width = .449) +
+    cowplot::draw_plot(gHis_highsea, x = 0.2, y = 0.47, height = .449, width = .449) +
+    cowplot::draw_plot(gMod_eez, x = - 0.08, y = 0.02, height = .449, width = .449) +
+    cowplot::draw_plot(gMod_highsea, x = 0.2, y = 0.02, height = .449, width = .449) +
+    cowplot::draw_plot(violin, x = 0.565, y = 0.145, height = .7, width = .43) +
+    cowplot::draw_label("High seas", x = 0.425,  y = 0.96,  size = 26) +
+    cowplot::draw_label("All eezs", x = 0.15,  y = 0.96,  size = 26) +
+    cowplot::draw_label("Historical", x = 0.01,  y = 0.71,  size = 26, angle = 90) +
+    cowplot::draw_label("Modern", x = 0.01,  y = 0.27,  size = 26, angle = 90) +
+    cowplot::draw_text("(a)", x = 0.01, y = 0.91, size = 25, fontface = "italic") +
+    cowplot::draw_text("(b)", x = 0.29, y = 0.91, size = 25, fontface = "italic") +
+    cowplot::draw_text("(c)", x = 0.01, y = 0.46, size = 25, fontface = "italic") +
+    cowplot::draw_text("(d)", x = 0.29, y = 0.46, size = 25, fontface = "italic") +
+    cowplot::draw_text("(e)", x = 0.58, y = 0.825, size = 25, fontface = "italic")
+  dev.off()
+
+
+}

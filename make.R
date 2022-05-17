@@ -166,9 +166,24 @@ di_seaMP <- predictor_violin(Mod.Hist, "di_seaM", "Distance to seamount (km)")
 di_1000mP <- predictor_violin(Mod.Hist, "di_1000m", "Distance to 1,000 m contour (km)")
 
 
+
+
 # multiplot
-g <- gridExtra::grid.arrange(depthP, slopeP,  di_1000mP, di_seaMP, di_spRidP, nrow = 2, ncol = 3)
-ggplot2::ggsave(here::here("outputs", "predictors_violin_all.png"), g, width = 9, height = 7)
+jpeg(here::here("outputs", "predictors_violin_all.jpeg"), width = 1550, height = 1200)
+cowplot::ggdraw() +
+  cowplot::draw_plot(depthP, 0.005, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(slopeP, 0.34, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(di_1000mP, 0.67, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(di_seaMP, 0.005, 0.1, 0.32, 0.4) +
+  cowplot::draw_plot(di_spRidP, 0.34, 0.1, 0.32, 0.4) +
+  cowplot::draw_text("(a)", x = 0.03, y = 0.92, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.35, y = 0.92, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.69, y = 0.92, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.03, y = 0.47, size = 25, fontface = "italic") +
+  cowplot::draw_text("(e)", x = 0.35, y = 0.47, size = 25, fontface = "italic")
+dev.off()
+
+
 
 
 # define model extent with raster
@@ -379,6 +394,26 @@ dev.off()
 
 
 
+# multiplot partial plots and barplot
+jpeg(here::here("outputs", "partial_plots_barplot.jpeg"), width = 1400, height = 1400)
+cowplot::ggdraw() +
+  cowplot::draw_plot(coefBar, 0.08, 0.52, 0.9, 0.47) +
+  cowplot::draw_plot(p1, 0.05, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p2, 0.38, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p3, 0.71, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p4, 0.05, 0, 0.25, 0.25) +
+  cowplot::draw_plot(p5, 0.38, 0, 0.25, 0.25) +
+  cowplot::draw_text("(a)", x = 0.08, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.04, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.37, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.7, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(e)", x = 0.04, y = 0.23, size = 25, fontface = "italic") +
+  cowplot::draw_text("(f)", x = 0.37, y = 0.23, size = 25, fontface = "italic")
+dev.off()
+
+
+
+
 
 
 
@@ -488,13 +523,23 @@ ggplot2::ggsave(here::here("outputs", "density_plot_all_models.png"), dens, widt
 calculate_median_predictions_in_out_mpa_extra(predHis, df_extraHis, mpa_sf)
 calculate_median_predictions_in_out_mpa_extra(predMod, df_extraMod, mpa_sf)
 
+# Calculate median predictions in mpas vs in all region (removing extrapolation zones)
+calculate_median_predictions_in_mpa_all_region_extra(predHis, df_extraHis, mpa_sf)
+calculate_median_predictions_in_mpa_all_region_extra(predMod, df_extraMod, mpa_sf)
+
 
 # multiplot
-png(here::here("outputs", "summary_plot1.png"), width = 1340, height = 960)
-gridExtra::grid.arrange(gHis, dens, gMod, res, ncol=2)
+jpeg(here::here("outputs", "summary_plot1.jpeg"), width = 1340, height = 960)
+cowplot::ggdraw() +
+  cowplot::draw_plot(gHis, 0.02, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(dens, 0.46, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gMod, 0.02, 0.02, 0.46, 0.46) +
+  cowplot::draw_plot(res, 0.46, 0.02, 0.46, 0.46) +
+  cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.48, y = 0.47, size = 25, fontface = "italic")
 dev.off()
-
-
 
 
 
@@ -560,4 +605,6 @@ plot_predictions_in_high_seas_extra(eez, predHis, predMod, df_extraHis, df_extra
 plot_predictions_in_eezs_extra(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
 
 
+# Clip and plot predictions in high seas versus eezs with violin plot (removing extrapolation zones)
+plot_predictions_high_seas_vs_eezs_extra_violin(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
 
