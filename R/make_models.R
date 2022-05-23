@@ -793,6 +793,67 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
 
 
 
+
+#' Plot predictions residuals with extrapolation extent
+#'
+#' @param pred_his
+#' @param pred_mod
+#' @param df_his
+#' @param df_mod
+#' @param wio
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_residuals_with_extra <- function(wio, pred_his, pred_mod, df_his, df_mod){
+
+  #get residuals of linear model
+  model <- lm(raster::getValues(pred_his) ~ raster::getValues(pred_mod), na.action=na.exclude)
+  res <- pred_his
+  res[] <- residuals.lm(model)
+
+  #get r squared
+  print("r-squared :")
+  print(summary(model)$r.squared)
+
+  #select extrapolation data points
+  df_his <- subset(df_his, cfact1 == -1)
+  df_mod <- subset(df_mod, cfact1 == -1)
+
+  #convert to dataframe for plotting
+  df_res <- as(res, "SpatialPixelsDataFrame")
+  df_res <- as.data.frame(df_res)
+  colnames(df_res) <- c("value", "x", "y")
+
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = wio) +
+    ggplot2::geom_tile(data = df_res, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_his, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_mod, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::scale_fill_viridis_c(limits = c(-1.2, 0.6), option = "magma")+
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("Residuals") +
+    ggplot2::labs(fill = 'Residuals')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 12),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+
+  ggplot2::ggsave(here::here("outputs", "map_predictions_residuals_with_extra.png"), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
 #' compare predictions (removing extrapolation zones)
 #'
 #' @param pred_his

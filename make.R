@@ -478,6 +478,10 @@ gHis <- plot_predictions_with_extra_mpas(wio, df_predHis, "Historical", df_extra
 
 
 
+# plot predictions residuals with extrapolation extent
+res <- plot_predictions_residuals_with_extra(wio, predHis, predMod, df_extraMod, df_extraHis)
+
+
 
 
 ####################  PREDICTIONS COMPARISON AND RESIDUAL MPA EFFECT
@@ -529,7 +533,7 @@ calculate_median_predictions_in_mpa_all_region_extra(predMod, df_extraMod, mpa_s
 
 
 # multiplot
-jpeg(here::here("outputs", "summary_plot1.jpeg"), width = 1340, height = 960)
+jpeg(here::here("outputs", "summary_plot1.jpeg"), width = 1320, height = 960)
 cowplot::ggdraw() +
   cowplot::draw_plot(gHis, 0.02, 0.52, 0.46, 0.46) +
   cowplot::draw_plot(dens, 0.46, 0.52, 0.46, 0.46) +
