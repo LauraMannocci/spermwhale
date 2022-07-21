@@ -136,16 +136,17 @@ select_best_model <- function(mod){
 #' make coefficients plot
 #'
 #' @param df_coef
+#' @param ylim
 #'
 #' @return
 #' @export
 #'
 
-make_coefficients_plot <- function(df_coef){
+make_coefficients_plot <- function(df_coef, ylim){
 
   p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, color = type)) +
     ggplot2::geom_point() +
-    ggforce::facet_zoom(ylim = c(-0.0043, 0.002)) +
+    ggforce::facet_zoom(ylim = ylim) +
     ggplot2::theme_light() +
     ggplot2::theme(legend.title = ggplot2::element_blank(), legend.position="right", text = ggplot2::element_text(size=16),
                    axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1)) +
@@ -173,16 +174,17 @@ make_coefficients_plot <- function(df_coef){
 #' make coefficients barplot
 #'
 #' @param df_coef
+#' @param ylim
 #'
 #' @return
 #' @export
 #'
 
-make_coefficients_barplot <- function(df_coef){
+make_coefficients_barplot <- function(df_coef, ylim){
 
   p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, fill = type, width = 0.8)) +
     ggplot2::geom_bar(position="dodge", stat="identity") +
-    ggforce::facet_zoom(ylim = c(-0.0075, 0.0025), zoom.size = 1) +
+    ggforce::facet_zoom(ylim = ylim, zoom.size = 1) +
     ggplot2::theme_light() +
     ggplot2::theme(legend.title = ggplot2::element_blank(),
                    axis.title.x = ggplot2::element_blank(),
@@ -390,7 +392,7 @@ get_predictors_importance <- function(modelstack, occ, bg, type){
 
 
 
-#' Make violin plot of predictors for occurrences and background points
+#' Make violin plot of predictors for occurrences
 #'
 #' @param modhis
 #' @param var
@@ -400,7 +402,7 @@ get_predictors_importance <- function(modelstack, occ, bg, type){
 #' @export
 #'
 
-predictor_violin <- function(modhis, var, ylabel) {
+predictor_violin_occurrences <- function(modhis, var, ylabel) {
 
   #kruskal test
   pval = kruskal.test(get(var) ~ type, data = modhis)$p.value
@@ -426,7 +428,7 @@ predictor_violin <- function(modhis, var, ylabel) {
                    axis.title = ggplot2::element_text(size = 20)) +
     ggplot2::scale_color_manual(values = c("#00BA38", "#F8766D"))
 
-  ggplot2::ggsave(here::here("outputs", paste0("predictors_violin_", var, ".png")), p, width = 9, height = 7)
+  ggplot2::ggsave(here::here("outputs", paste0("predictors_violin_occurrences_", var, ".png")), p, width = 9, height = 7)
 
   return(p)
 
@@ -726,11 +728,12 @@ plot_predictions_with_extra <- function(wio, df_pred, type, df_test){
   df_test <- subset(df_test, cfact1 == -1)
 
   g <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab(paste(type, "model")) +
@@ -738,7 +741,8 @@ plot_predictions_with_extra <- function(wio, df_pred, type, df_test){
     ggplot2::theme(legend.position = "right",
                    legend.justification = "left",
                    legend.margin = ggplot2::margin(0,0,0,0),
-                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, ".png")), g, width = 9, height = 7)
 
@@ -765,13 +769,14 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
   df_test <- subset(df_test, cfact1 == -1)
 
   g <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
     #add mpas
-    ggplot2::geom_sf(data = mpa, fill = "white", alpha = 0.1) +
+    ggplot2::geom_sf(data = mpa, color = "white", fill = NA, size = 0.6) +
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab(paste(type, "model")) +
@@ -781,9 +786,10 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
                    legend.text = ggplot2::element_text(size = 17),
                    legend.title = ggplot2::element_text(size = 17),
                    axis.title = ggplot2::element_text(size = 18),
-                   axis.text = ggplot2::element_text(size = 12),
+                   axis.text = ggplot2::element_text(size = 10),
                    legend.margin = ggplot2::margin(0,0,0,0),
-                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, "_mpas.png")), g, width = 9, height = 7)
 
@@ -827,12 +833,13 @@ plot_predictions_residuals_with_extra <- function(wio, pred_his, pred_mod, df_hi
   colnames(df_res) <- c("value", "x", "y")
 
   g <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_res, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_res, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_his, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
-    ggplot2::geom_tile(data = df_mod, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_his, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_tile(data = df_mod, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(-1.2, 0.6), option = "magma")+
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab("Residuals") +
@@ -842,9 +849,10 @@ plot_predictions_residuals_with_extra <- function(wio, pred_his, pred_mod, df_hi
                    legend.text = ggplot2::element_text(size = 17),
                    legend.title = ggplot2::element_text(size = 17),
                    axis.title = ggplot2::element_text(size = 18),
-                   axis.text = ggplot2::element_text(size = 12),
+                   axis.text = ggplot2::element_text(size = 10),
                    legend.margin = ggplot2::margin(0,0,0,0),
-                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10))
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", "map_predictions_residuals_with_extra.png"), g, width = 9, height = 7)
 
@@ -1141,10 +1149,10 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_his, pred_mod, obs_mo
 
   #make map
   gHis <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value)) +
     ggplot2::geom_point(data = obs_his, ggplot2::aes(x = Lon, y = Lat, alpha = 0.6)) +
-    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
     ggplot2::ylab("") +
@@ -1172,10 +1180,10 @@ plot_predictions_in_eez <- function(eez_sh, eez_name, pred_his, pred_mod, obs_mo
 
   #make map
   gMod <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value)) +
     ggplot2::geom_point(data = obs_mod, ggplot2::aes(x = Lon, y = Lat, alpha = 0.6)) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab("Modern") +
@@ -1312,11 +1320,11 @@ plot_predictions_in_eez_extra <- function(eez_sh, eez_name, pred_his, pred_mod, 
   ######Historical map
 
   gHis <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
     ggplot2::ylab("") +
@@ -1335,11 +1343,11 @@ plot_predictions_in_eez_extra <- function(eez_sh, eez_name, pred_his, pred_mod, 
   ######Modern map
 
   gMod <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(eez)[1], raster::extent(eez)[2]), ylim = c(raster::extent(eez)[3], raster::extent(eez)[4]), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab("Modern") +
@@ -1440,7 +1448,7 @@ plot_predictions_in_eez_extra <- function(eez_sh, eez_name, pred_his, pred_mod, 
 #' @export
 #'
 
-plot_predictions_in_high_seas <- function(eez_sh, pred_his, pred_mod, df_extra_his, df_extra_mod, wio){
+plot_predictions_in_high_seas <- function(eez_sh, pred_his, pred_mod, wio){
 
   ###Historical
 
@@ -1462,9 +1470,9 @@ plot_predictions_in_high_seas <- function(eez_sh, pred_his, pred_mod, df_extra_h
 
   #make map
   gHis <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value)) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_his)[1], raster::extent(pred_his)[2]), ylim = c(raster::extent(pred_his)[3], raster::extent(pred_his)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
     ggplot2::ylab("") +
@@ -1500,9 +1508,9 @@ plot_predictions_in_high_seas <- function(eez_sh, pred_his, pred_mod, df_extra_h
 
   #make map
   gMod <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value)) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_mod)[1], raster::extent(pred_mod)[2]), ylim = c(raster::extent(pred_mod)[3], raster::extent(pred_mod)[4]), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::xlab("Modern") +
@@ -1631,10 +1639,10 @@ plot_predictions_in_high_seas_extra <- function(eez_sh, pred_his, pred_mod, df_e
 
   #make map modern
   gHis <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
     ggplot2::coord_sf(xlim = c(raster::extent(pred_his)[1], raster::extent(pred_his)[2]), ylim = c(raster::extent(pred_his)[3], raster::extent(pred_his)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
@@ -1654,10 +1662,10 @@ plot_predictions_in_high_seas_extra <- function(eez_sh, pred_his, pred_mod, df_e
 
   #make map historical
   gMod <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_mod)[1], raster::extent(pred_mod)[2]), ylim = c(raster::extent(pred_mod)[3], raster::extent(pred_mod)[4]), expand = FALSE) +
     ggplot2::ylab("")+
@@ -1774,10 +1782,10 @@ plot_predictions_in_eezs_extra <- function(eez_sh, pred_his, pred_mod, df_extra_
 
   #make map modern
   gHis <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_his, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
     ggplot2::coord_sf(xlim = c(raster::extent(pred_his)[1], raster::extent(pred_his)[2]), ylim = c(raster::extent(pred_his)[3], raster::extent(pred_his)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
@@ -1797,10 +1805,10 @@ plot_predictions_in_eezs_extra <- function(eez_sh, pred_his, pred_mod, df_extra_
 
   #make map historical
   gMod <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_mod, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_mod)[1], raster::extent(pred_mod)[2]), ylim = c(raster::extent(pred_mod)[3], raster::extent(pred_mod)[4]), expand = FALSE) +
     ggplot2::ylab("")+
@@ -1931,11 +1939,11 @@ plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pr
 
   #make map modern
   gHis_highsea <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his_highsea, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his_highsea, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_his_highsea, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_his_highsea, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_his_highsea)[1], raster::extent(pred_his_highsea)[2]), ylim = c(raster::extent(pred_his_highsea)[3], raster::extent(pred_his_highsea)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
     ggplot2::ylab("") +
@@ -1954,10 +1962,10 @@ plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pr
 
   #make map historical
   gMod_highsea <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod_highsea, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod_highsea, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_mod_highsea, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_mod_highsea, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_mod_highsea)[1], raster::extent(pred_mod_highsea)[2]), ylim = c(raster::extent(pred_mod_highsea)[3], raster::extent(pred_mod_highsea)[4]), expand = FALSE) +
     ggplot2::ylab("")+
@@ -2026,11 +2034,11 @@ plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pr
 
   #make map modern
   gHis_eez <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_his_eez, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_his_eez, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_his_eez, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_his_eez, ggplot2::aes(x = x, y = y), fill = "grey30") +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_his_eez)[1], raster::extent(pred_his_eez)[2]), ylim = c(raster::extent(pred_his_eez)[3], raster::extent(pred_his_eez)[4]), expand = FALSE) +
     ggspatial::fixed_plot_aspect(ratio = 1) +
     ggplot2::ylab("") +
@@ -2049,10 +2057,10 @@ plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pr
 
   #make map historical
   gMod_eez <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = wio) +
-    ggplot2::geom_tile(data = df_pred_mod_eez, ggplot2::aes(x = x, y = y, fill = value), alpha=0.8) +
+    ggplot2::geom_tile(data = df_pred_mod_eez, ggplot2::aes(x = x, y = y, fill = value)) +
     #ask extrapolation mask
-    ggplot2::geom_tile(data = df_extra_mod_eez, ggplot2::aes(x = x, y = y), fill = "black", alpha=0.5) +
+    ggplot2::geom_tile(data = df_extra_mod_eez, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis") +
     ggplot2::coord_sf(xlim = c(raster::extent(pred_mod_eez)[1], raster::extent(pred_mod_eez)[2]), ylim = c(raster::extent(pred_mod_eez)[3], raster::extent(pred_mod_eez)[4]), expand = FALSE) +
     ggplot2::ylab("")+

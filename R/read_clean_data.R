@@ -85,6 +85,74 @@ project_transect <- function(trans, proj){
 
 
 
+#' Read logbook historical data
+#'
+#' @return
+#' @export
+#'
+
+read_logbook_data <- function(){
+
+  dat <- readxl::read_xlsx(here::here("data", "whaling_logbooks", "AmericanOffshoreWhalingLogbookData", "aowl_download_20180104.xlsx"), col_names = T, skip = 1) %>%
+    dplyr::mutate(Encounter = as.factor(Encounter)) %>%
+    dplyr::mutate(Species = as.factor(Species)) %>%
+    dplyr::mutate(Source = as.factor(Source)) -> dat2
+
+  return(dat2)
+
+}
+
+
+
+
+#' Select logbook historical data
+#'
+#' @param dat
+#' @param ext
+#'
+#' @return
+#' @export
+#'
+
+select_logbook_data <- function(dat, ext){
+
+  dat %>%
+    #select non encounters
+    dplyr::filter(Encounter == "NoEnc") %>%
+    #add origin column
+    dplyr::mutate(origin = "no_encounter") -> dat_noenc
+
+  dat %>%
+    #select non sperm whale presences
+    dplyr::filter(Species != "Sperm" | is.na(Species)) %>%
+    #add origin column
+    dplyr::mutate(origin = "no_sperm_whale_sighting") -> dat_nonsw
+
+  #extract lat/lon from study region extent
+  lonmin <- ext[1]
+  lonmax <- ext[2]
+  latmin <- ext[3]
+  latmax <- ext[4]
+
+  #bind
+  rbind(dat_noenc, dat_nonsw) %>%
+    #restrict to study region
+    dplyr::filter(Lat > latmin & Lat < latmax) %>%
+    dplyr::filter(Lon > lonmin & Lon < lonmax) %>%
+    #selection
+    dplyr::select(Lon, Lat, origin) -> datnew
+
+return(datnew)
+
+}
+
+
+
+
+
+
+
+
 #' Read rasters of bathymetrically derived predictors
 #'
 #' @param var
@@ -160,6 +228,27 @@ get_random_points <- function(modelstack, ext, occ, nb){
 
 }
 
+
+
+
+#' Get a given number of random points from logbooks
+#'
+#' @param dat
+#' @param n
+#'
+#' @return
+#' @export
+#'
+
+get_random_points_from_logbooks <- function(dat, n){
+
+  r <- dplyr::slice_sample(dat, n= n, replace = FALSE)
+
+  r <- as.data.frame(r)
+
+  return(r)
+
+}
 
 
 
@@ -381,21 +470,27 @@ define_points_along_survey_transects <- function(trans, length){
 
 
 
-#' Create background points from survey points (on the basis of bias file)
+#' Create background points from survey segments centroids (on the basis of bias file)
 #'
 #' @param modelstack
-#' @param pts
+#' @param seg
 #'
 #' @return
 #' @export
 #'
 
-create_background_points_from_survey <- function(modelstack, pts, nb){
+create_background_points_from_survey <- function(modelstack, segs, nb){
+
+  #transform segs to sf
+  segs <- sf::st_as_sf(segs)
+
+  #get centroids
+  segs <- sf::st_centroid(segs)
 
   # create a raster file on the basis of survey points density
   biasfile <- modelstack[["depth"]]
   biasfile[] <- 0
-  tab <- table(raster::cellFromXY(biasfile, sf::st_coordinates(pts)))
+  tab <- table(raster::cellFromXY(biasfile, sf::st_coordinates(segs)))
   biasfile[as.numeric(names(tab))] <- tab
 
   #select background points on the basis of the bias file
@@ -404,6 +499,8 @@ create_background_points_from_survey <- function(modelstack, pts, nb){
                                             replace = FALSE,
                                             size = nb))
   colnames(bg) <- c("Lon", "Lat")
+
+  bg <- as.data.frame(bg)
 
   return(bg)
 

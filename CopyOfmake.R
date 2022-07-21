@@ -1,5 +1,4 @@
-#initialize see for random sampling
-set.seed(1)
+
 
 # load all functions in R
 devtools::load_all()
@@ -15,37 +14,7 @@ devtools::load_all()
 
 
 
-####################  PREPARE ENVIRONMENT DATA
-
-# read rasters of bathymetrically derived predictors - each has an ecological rational
-depth.m <- read_bathy_data("depth")
-slope.per <- read_bathy_data("slope")
-di_1000.km <- read_bathy_data("di_1000m")
-di_seaM.km <- read_bathy_data("di_seaM")
-di_spRid.km <- read_bathy_data("di_spRid")
-
-# stack all predictor rasters into a single stack
-modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
-
-# reduce resolution by a factor of 10 to decrease processing time
-modelStack10 <- raster::aggregate(modelStack, fact = 10)
-
-# check correlations
-cor <- raster::layerStats(modelStack10, 'pearson', na.rm = TRUE)
-write.csv(cor, here::here("outputs", "raster_correlations.csv"))
-
-# stack again after removing collinear predictors (none here)
-modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
-
-# reduce resolution by a factor of 20 to decrease processing time
-modelStack <- raster::aggregate(modelStack, fact = 20)
-
-
-
-
-
-
-####################  READ HISTORICAL AND MODERN PRESENCE DATA
+####################  READ PRESENCE DATA
 
 # read and clean historical data
 SPHis <- read_clean_hist_data()
@@ -80,14 +49,30 @@ noaa_proj <- project_transect(noaa, custom_proj)
 
 
 
+####################  PREPARE ENVIRONMENT DATA
 
-####################  READ LOGBOOK HISTORICAL DATA
+# read rasters of bathymetrically derived predictors - each has an ecological rational
+depth.m <- read_bathy_data("depth")
+slope.per <- read_bathy_data("slope")
+di_1000.km <- read_bathy_data("di_1000m")
+di_seaM.km <- read_bathy_data("di_seaM")
+di_spRid.km <- read_bathy_data("di_spRid")
 
-#read logbook data
-log <- read_logbook_data()
+# stack all predictor rasters into a single stack
+modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
 
-#clean logbook data
-log <- select_logbook_data(log, raster::extent(depth.m))
+# reduce resolution by a factor of 10 to decrease processing time
+modelStack <- raster::aggregate(modelStack, fact = 10)
+
+# check correlations
+cor <- raster::layerStats(modelStack, 'pearson', na.rm = TRUE)
+write.csv(cor, here::here("outputs", "raster_correlations.csv"))
+
+# stack again after removing collinear predictors (none here)
+modelStack <- raster::stack(c(depth.m, slope.per, di_1000.km, di_seaM.km, di_spRid.km), quick=TRUE)
+
+# reduce again resolution by a factor of 10 to decrease processing time
+modelStack <- raster::aggregate(modelStack, fact = 20)
 
 
 
@@ -154,7 +139,8 @@ dev.off()
 
 
 
-####################  PREPARATION OF OCCURRENCES
+
+####################  SELECTION OF BACKGROUND POINTS
 
 # Let's now remove occurrences that are cell duplicates -- these are
 # occurrences that share a grid cell in the predictor variable rasters.
@@ -168,21 +154,22 @@ SPHis.z <- extract_bathy_at_point(modelStack, SPHis)
 SPMod.z <- extract_bathy_at_point(modelStack, SPMod)
 
 
-# Violin plots of predictors for occurrences
+# Violin plots of predictors for occurrences and background points
 SPHis.z$type <- factor(c('Historical'))
 SPMod.z$type <- factor(c('Modern'))
 Mod.Hist <- rbind(SPHis.z, SPMod.z)
 
-depthP <- predictor_violin_occurrences(Mod.Hist, "depth", "Seabed depth (m)")
-slopeP <- predictor_violin_occurrences(Mod.Hist, "slope", "Seabed slope (%)")
-di_spRidP <- predictor_violin_occurrences(Mod.Hist, "di_spRid", "Distance to spreading ridge (km)")
-di_seaMP <- predictor_violin_occurrences(Mod.Hist, "di_seaM", "Distance to seamount (km)")
-di_1000mP <- predictor_violin_occurrences(Mod.Hist, "di_1000m", "Distance to 1,000 m contour (km)")
+depthP <- predictor_violin(Mod.Hist, "depth", "Seabed depth (m)")
+slopeP <- predictor_violin(Mod.Hist, "slope", "Seabed slope (%)")
+di_spRidP <- predictor_violin(Mod.Hist, "di_spRid", "Distance to spreading ridge (km)")
+di_seaMP <- predictor_violin(Mod.Hist, "di_seaM", "Distance to seamount (km)")
+di_1000mP <- predictor_violin(Mod.Hist, "di_1000m", "Distance to 1,000 m contour (km)")
+
 
 
 
 # multiplot
-jpeg(here::here("outputs", "predictors_violin_occurrences.jpeg"), width = 1550, height = 1200)
+jpeg(here::here("outputs", "predictors_violin_all.jpeg"), width = 1550, height = 1200)
 cowplot::ggdraw() +
   cowplot::draw_plot(depthP, 0.005, 0.55, 0.32, 0.4) +
   cowplot::draw_plot(slopeP, 0.34, 0.55, 0.32, 0.4) +
@@ -199,18 +186,16 @@ dev.off()
 
 
 
+# define model extent with raster
+model.extent <- raster::extent(26.25, 84.75, -40.25, 25.25) #Extent defined by the West Indian Ocean
+
+
+# Historical data: get random background points in whole region
+BgHis <- get_random_points(modelStack, model.extent, SPHis, 5000)
 
 
 
-
-####################  SELECTION OF BACKGROUND POINTS (n=10000)
-
-
-#-------- Historical data: get random background points from whaling logbooks
-BgHis <- get_random_points_from_logbooks(log, 10000)
-
-
-#-------- Modern data: generate background points from observed absences on transects
+# Modern data: generate background points from observed absences on transects
 
 # segment transects into 10km pieces
 library(sp) #to ensure SegmentSpatialLines is working
@@ -229,6 +214,7 @@ remmoa_seg <- project_transect(remmoa_proj_seg, proj)
 noaa_seg <- project_transect(noaa_proj_seg, proj)
 
 
+
 # merge all segments
 sp.lines <- list()
 sp.lines[[1]] <- oa_seg
@@ -237,34 +223,40 @@ sp.lines[[3]] <- noaa_seg
 seg <- do.call(rbind, sp.lines)
 
 
-# create a raster file on the basis of survey segment centroids density (on the basis of bias file)
-#(use 1/12 resolution for bias file)
-BgMod <- create_background_points_from_survey(modelStack10, seg, 10000)
+# get observed absence points from transect segments
+abs <- get_observed_absence_points(seg, SPMod)
+
+# plot(abs, cex = 0.1)
+# points(SPMod, col=2, cex = 0.1)
 
 
+# create a raster file on the basis of survey points density
+BgMod <- create_background_points_from_survey(modelStack, abs, 5000)
 
-# write background points
-write.csv(BgMod, here::here("outputs", "background_points_modern.csv"), row.names = F)
-write.csv(BgHis, here::here("outputs", "background_points_historial.csv"), row.names = F)
 
 
 
 # once the randomPoints have been generated, we can batch-extract all variables from the raster stack
 BgMod.z <- extract_bathy_at_point(modelStack, BgMod)
-BgHis.z <- extract_bathy_at_point(modelStack, BgHis[,c("Lon", "Lat")])
+BgHis.z <- extract_bathy_at_point(modelStack, BgHis)
 
 
 
 # map background points
 jpeg(here::here("outputs", "background_points.jpeg"), width = 1500, height = 750)
 par(mfrow=c(1,2), mar=c(2,2,2,6))
-raster::plot(depth.m, main = "Historical (n = 10000)")
+raster::plot(depth.m, main = "Historical")
 maps::map('world', fill=T , col= "grey", add=TRUE)
 points(BgHis, col="blue", pch=20, cex=0.1)
-raster::plot(depth.m, main = "Modern (n = 10000)")
+raster::plot(depth.m, main = "Modern")
 maps::map('world', fill=T , col= "grey", add=TRUE)
 points(BgMod, col="blue", pch=20, cex=0.1)
 dev.off()
+
+# write background points
+write.csv(BgMod, here::here("outputs", "background_points_modern.csv"), row.names = F)
+write.csv(BgHis, here::here("outputs", "background_points_historial.csv"), row.names = F)
+
 
 
 
@@ -290,18 +282,19 @@ cbMod <- checkerboard_partitioning(SPMod, SPMod.z, BgMod, BgMod.z, modelStack)
 cbHis <- checkerboard_partitioning(SPHis, SPHis.z, BgHis, BgHis.z, modelStack)
 
 
+
 # model evaluation with user partition
 SPMod.x <- evaluate_model(SPMod,
                           modelStack,
                           BgMod,
-                          list(fc = c("L", "Q"), rm = 1), #only linear fc / impose low penalty on model complexity
+                          list(fc = c("L"), rm = 1), #only linear fc / impose low penalty on model complexity
                           list(occs.grp = cbMod$occs.grp, bg.grp = cbMod$bg.grp),
                           "modern")
 
 SPHis.x <- evaluate_model(SPHis,
                           modelStack,
-                          BgHis[,c("Lon", "Lat")],
-                          list(fc = c("L", "Q"), rm = 1), #only linear fc /  impose low penalty on model complexity
+                          BgHis,
+                          list(fc = c("L"), rm = 1), #only linear fc /  impose low penalty on model complexity
                           list(occs.grp = cbHis$occs.grp, bg.grp = cbHis$bg.grp),
                           "historical")
 
@@ -324,7 +317,7 @@ Model_metrics$type <- factor(c('Historical', 'Modern'))
 write.csv(Model_metrics, here::here("outputs", "model_metrics.csv"))
 
 
-# We can select a single model from the ENMevaluation object using the tune.args of our optimal model
+# We can select a single model from the ENMevaluation object using the tune.args of ournoptimal model
 mod.seqHis <- ENMeval::eval.models(SPHis.x)[[opt.seqHis$tune.args]]
 mod.seqMod <- ENMeval::eval.models(SPMod.x)[[opt.seqMod$tune.args]]
 
@@ -351,12 +344,12 @@ write.csv(Coef, here::here("outputs", "coefficients.csv"))
 
 
 # plot coefficients
-coefsp <- make_coefficients_plot(Coef, c(-0.0015, 0.0015))
+coefsp <- make_coefficients_plot(Coef)
 
 
 
 # barplot version
-coefBar <- make_coefficients_barplot(Coef, c(-0.0015, 0.0015))
+coefBar <- make_coefficients_barplot(Coef)
 
 
 
@@ -465,12 +458,11 @@ res <- plot_predictions_residuals(wio, predHis, predMod)
 
 ####################  VISUALISE EXTRAPOLATION EXTENT
 
-# get multidimensional extrapolation extent - the next two lines of code take a few minutes to run on 50 threads on a server
-# but they will crash a laptop computer
-# so here we load df_extraMod and df_extraHis objects generated on a server
-load(("make_for_pc.RData"))
-# df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
-# df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
+
+# get multidimensional extrapolation extent - the next two lines took a few minutes to run on 50 threads
+df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
+df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
+
 
 
 # Plot predictions with extrapolation extent
