@@ -113,14 +113,16 @@ evaluate_model <- function(occ, modelstack, bg, args, user.grp, type) {
 #' @export
 #'
 
-select_best_model <- function(mod){
+select_best_model <- function(mod, type){
 
   # get overall results
   res <- ENMeval::eval.results(mod)
 
-  # select models minimizing OP and maximizing auc
+  # save metrics
+  write.csv(res, here::here("outputs", paste0("metrics_ranking_", type,"_model.csv")))
+
+  # select models maximizing auc
   opt <- res %>%
-    dplyr::filter(or.10p.avg == min(or.10p.avg)) %>%
     dplyr::filter(auc.val.avg == max(auc.val.avg))
 
   return(opt)

@@ -314,14 +314,14 @@ SPHis.x <- evaluate_model(SPHis,
 ####################  MODEL SELECTION AND OPTIMISATION
 
 # select best model
-opt.seqMod <- select_best_model(SPMod.x)
-opt.seqHis <- select_best_model(SPHis.x)
+opt.seqMod <- select_best_model(SPMod.x, "Modern")
+opt.seqHis <- select_best_model(SPHis.x, "Historical")
 
 
-# write model metrics
-Model_metrics <- rbind(opt.seqHis, opt.seqMod)
-Model_metrics$type <- factor(c('Historical', 'Modern'))
-write.csv(Model_metrics, here::here("outputs", "model_metrics.csv"))
+# write best model metrics
+best_model_metrics <- rbind(opt.seqHis, opt.seqMod)
+best_model_metrics$type <- factor(c('Historical', 'Modern'))
+write.csv(best_model_metrics, here::here("outputs", "metrics_best_models.csv"))
 
 
 # We can select a single model from the ENMevaluation object using the tune.args of our optimal model
