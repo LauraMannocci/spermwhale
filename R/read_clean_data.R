@@ -105,7 +105,7 @@ read_logbook_data <- function(){
 
 
 
-#' Select logbook historical data
+#' Select logbook historical effort data
 #'
 #' @param dat
 #' @param ext
@@ -114,7 +114,7 @@ read_logbook_data <- function(){
 #' @export
 #'
 
-select_logbook_data <- function(dat, ext){
+select_logbook_effort_data <- function(dat, ext){
 
   dat %>%
     #select non encounters
@@ -148,6 +148,39 @@ return(datnew)
 
 
 
+
+#' Select logbook historical occurrence data
+#'
+#' @param dat
+#' @param ext
+#'
+#' @return
+#' @export
+#'
+
+select_logbook_occurrence_data <- function(dat, ext){
+
+  #extract lat/lon from study region extent
+  lonmin <- ext[1]
+  lonmax <- ext[2]
+  latmin <- ext[3]
+  latmax <- ext[4]
+
+  dat %>%
+    #select sperm whales sightings and strikes
+    dplyr::filter(Encounter == c("Strike", "Sight")) %>%
+    dplyr::filter(Species == "Sperm") %>%
+    #restrict to study region
+    dplyr::filter(Lat > latmin & Lat < latmax) %>%
+    dplyr::filter(Lon > lonmin & Lon < lonmax) %>%
+    #selection
+    dplyr::select(Lon, Lat) %>%
+    as.data.frame() -> datnew
+
+
+  return(datnew)
+
+}
 
 
 

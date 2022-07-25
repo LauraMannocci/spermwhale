@@ -45,22 +45,6 @@ modelStack <- raster::aggregate(modelStack, fact = 20)
 
 
 
-####################  READ HISTORICAL AND MODERN PRESENCE DATA
-
-# read and clean historical data
-SPHis <- read_clean_hist_data()
-
-# read and clean modern data
-SPMod <- read_clean_mod_data()
-
-# Removing occurrences that have the same coordinates is good practice to avoid pseudoreplication.
-SPHis <- SPHis[!duplicated(SPHis),]
-SPMod <- SPMod[!duplicated(SPMod),]
-
-
-
-
-
 
 
 ####################  READ TRANSECTS MODERN DATA
@@ -84,14 +68,37 @@ noaa_proj <- project_transect(noaa, custom_proj)
 ####################  READ LOGBOOK HISTORICAL DATA
 
 #read logbook data
-log <- read_logbook_data()
+logbook <- read_logbook_data()
 
-#clean logbook data
-log <- select_logbook_data(log, raster::extent(depth.m))
-
-
+#clean logbook effort data
+log <- select_logbook_effort_data(logbook, raster::extent(depth.m))
 
 
+
+
+
+
+
+####################  READ HISTORICAL AND MODERN OCCURRENCE DATA
+
+# read and clean historical occurrence data
+SPHis <- select_logbook_occurrence_data(logbook, raster::extent(depth.m))
+write.csv(SPHis, here::here("outputs", "occurrence_points_historical.csv"), row.names = F)
+
+# read and clean modern occurrence data
+SPMod <- read_clean_mod_data()
+
+dim(SPMod) #219
+dim(SPHis) #602
+
+
+
+# Removing occurrences that have the same coordinates is good practice to avoid pseudoreplication.
+SPHis <- SPHis[!duplicated(SPHis),]
+SPMod <- SPMod[!duplicated(SPMod),]
+
+dim(SPMod)
+dim(SPHis)
 
 
 
@@ -103,10 +110,10 @@ log <- select_logbook_data(log, raster::extent(depth.m))
 # map sperm whale occurrences
 jpeg(here::here("outputs", "occurrences.jpeg"), width = 1100, height = 550)
 par(mfrow=c(1,2), mar=c(2,2,2,6))
-raster::plot(depth.m, main="Historic", legend = FALSE)
+raster::plot(depth.m, main="Historical (n=602)", legend = FALSE)
 maps::map('world', fill=T, col= "grey", add=TRUE)
 points(SPHis,col="black", pch=20)
-raster::plot(depth.m, main="Modern")
+raster::plot(depth.m, main="Modern (n=219)")
 maps::map('world',fill=T , col= "grey", add=TRUE)
 points(SPMod,col="black", pch=20)
 dev.off()
@@ -182,18 +189,18 @@ di_1000mP <- predictor_violin_occurrences(Mod.Hist, "di_1000m", "Distance to 1,0
 
 
 # multiplot
-jpeg(here::here("outputs", "predictors_violin_occurrences.jpeg"), width = 1550, height = 1200)
+jpeg(here::here("outputs", "figure3.jpeg"), width = 1550, height = 1200)
 cowplot::ggdraw() +
   cowplot::draw_plot(depthP, 0.005, 0.55, 0.32, 0.4) +
   cowplot::draw_plot(slopeP, 0.34, 0.55, 0.32, 0.4) +
   cowplot::draw_plot(di_1000mP, 0.67, 0.55, 0.32, 0.4) +
   cowplot::draw_plot(di_seaMP, 0.005, 0.1, 0.32, 0.4) +
   cowplot::draw_plot(di_spRidP, 0.34, 0.1, 0.32, 0.4) +
-  cowplot::draw_text("(a)", x = 0.03, y = 0.92, size = 25, fontface = "italic") +
-  cowplot::draw_text("(b)", x = 0.35, y = 0.92, size = 25, fontface = "italic") +
-  cowplot::draw_text("(c)", x = 0.69, y = 0.92, size = 25, fontface = "italic") +
-  cowplot::draw_text("(d)", x = 0.03, y = 0.47, size = 25, fontface = "italic") +
-  cowplot::draw_text("(e)", x = 0.35, y = 0.47, size = 25, fontface = "italic")
+  cowplot::draw_text("(a)", x = 0.03, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.35, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.69, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.03, y = 0.49, size = 25, fontface = "italic") +
+  cowplot::draw_text("(e)", x = 0.35, y = 0.49, size = 25, fontface = "italic")
 dev.off()
 
 
@@ -287,7 +294,7 @@ rm(abs, cor, depth.m, di_1000.km, di_guy.km, di_rid.km, di_seaM.km, di_spRid.km,
 
 # do the checkerboard partitioning
 cbMod <- checkerboard_partitioning(SPMod, SPMod.z, BgMod, BgMod.z, modelStack)
-cbHis <- checkerboard_partitioning(SPHis, SPHis.z, BgHis, BgHis.z, modelStack)
+cbHis <- checkerboard_partitioning(SPHis, SPHis.z, BgHis[,c("Lon", "Lat")], BgHis.z, modelStack)
 
 
 # model evaluation with user partition
@@ -351,12 +358,12 @@ write.csv(Coef, here::here("outputs", "coefficients.csv"))
 
 
 # plot coefficients
-coefsp <- make_coefficients_plot(Coef, c(-0.0015, 0.0015))
+coefsp <- make_coefficients_plot(Coef, c(-0.004, 0.002))
 
 
 
 # barplot version
-coefBar <- make_coefficients_barplot(Coef, c(-0.0015, 0.0015))
+coefBar <- make_coefficients_barplot(Coef, c(-0.004, 0.002))
 
 
 
@@ -402,7 +409,7 @@ dev.off()
 
 
 # multiplot partial plots and barplot
-jpeg(here::here("outputs", "partial_plots_barplot.jpeg"), width = 1400, height = 1400)
+jpeg(here::here("outputs", "figure4.jpeg"), width = 1400, height = 1400)
 cowplot::ggdraw() +
   cowplot::draw_plot(coefBar, 0.08, 0.52, 0.9, 0.47) +
   cowplot::draw_plot(p1, 0.05, 0.25, 0.25, 0.25) +
@@ -541,7 +548,7 @@ calculate_median_predictions_in_mpa_all_region_extra(predMod, df_extraMod, mpa_s
 
 
 # multiplot
-jpeg(here::here("outputs", "summary_plot1.jpeg"), width = 1320, height = 960)
+jpeg(here::here("outputs", "figure5.jpeg"), width = 1320, height = 960)
 cowplot::ggdraw() +
   cowplot::draw_plot(gHis, 0.02, 0.52, 0.46, 0.46) +
   cowplot::draw_plot(dens, 0.46, 0.52, 0.46, 0.46) +
@@ -556,67 +563,71 @@ dev.off()
 
 
 
+#################### REFUGEE EFFECT
 
 
-
-####################  PREDICTIONS WITHIN SPECIFIC EEZS
-
-
-# read eez shapefile
-eez <- sf::st_read(here::here("data", "eez", "World_EEZ_v11_20191118_gpkg", "eez_v11.gpkg"))
-
+# select threshold indicating highly suitable habitat (using max SSS following Liu et al 2013)
+sssMod <- select_sss_threshold(SPMod, BgMod.z, modelStack)
+sssMod #0.4346055
+sssHis <- select_sss_threshold(SPHis, BgHis.z, modelStack)
+sssHis #0.4856536
 
 
-# Clip and plot predictions in eez and add violin plot to compare them
-plot_predictions_in_eez(eez, "Seychelles", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Madagascar", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Sri Lanka", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Mauritius", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Chagos", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Maldives", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Reunion", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Comoros", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Oman", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Yemen", predHis, predMod, SPMod, SPHis, wio)
-plot_predictions_in_eez(eez, "Somali", predHis, predMod, SPMod, SPHis, wio)
-
-
-# Clip and plot predictions in eez and add violin plot to compare them (removing extrapolation zones)
-plot_predictions_in_eez_extra(eez, "Seychelles", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Madagascar", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Sri Lanka", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Mauritius", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Chagos", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Maldives", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Reunion", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Comoros", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Oman", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Yemen", predHis, predMod, df_extraHis, df_extraMod, wio)
-plot_predictions_in_eez_extra(eez, "Somali", predHis, predMod, df_extraHis, df_extraMod, wio)
+# Plot predictions above sss threshold with extrapolation extent and mpas
+gMod_above <- plot_predictions_with_extra_mpas_above_threshold(wio, df_predMod, "Modern", df_extraMod, mpa_sf, sssMod)
+gHis_above <- plot_predictions_with_extra_mpas_above_threshold(wio, df_predHis, "Historical", df_extraHis, mpa_sf, sssHis)
 
 
 
 
+# Map high suitability predictions that have become low suitability and low suitability predictions that have become high suitability
+gLostGained <- plot_predictions_lost_gained(predMod, predHis, sssMod, sssHis, df_extraMod, df_extraHis, mpa_sf)
+
+
+# Mask distance to coast with lost/gained predictions
+di_coast <- read_bathy_data("di_coast")
+di_coast_masked_lost <- mask_dist_to_coast_predictions_lost(di_coast, predMod, predHis, sssMod, sssHis, df_extraMod, df_extraHis)
+di_coast_masked_gained <- mask_dist_to_coast_predictions_gained(di_coast, predMod, predHis, sssMod, sssHis, df_extraMod, df_extraHis)
+
+
+#density plot
+# convert to dataframe for plotting
+dflost <- as(di_coast_masked_lost, "SpatialPixelsDataFrame")
+dflost <- as.data.frame(dflost)
+dflost$model <- "Lost"
+
+dfgained <- as(di_coast_masked_gained, "SpatialPixelsDataFrame")
+dfgained <- as.data.frame(dfgained)
+dfgained$model <- "Gained"
+
+df <- rbind(dflost, dfgained)
+df$model <- factor(df$model , levels=c("Lost", "Gained"))
+
+densLostGained <- ggplot2::ggplot(data = df, ggplot2::aes(x = di_coast, y = model, fill = model, scale = 0.5)) +
+      ggridges::geom_density_ridges(panel_scaling = FALSE) +
+      ggplot2::scale_fill_manual(values = c("orange","blue")) +
+      ggplot2::xlab('Distance to coast (km)') +
+      ggplot2::ylab("") +
+      ggplot2::theme_light() +
+      ggplot2::theme(legend.position = "none",
+                     axis.text = ggplot2::element_text(size = 18),
+                     axis.title = ggplot2::element_text(size = 18)) +
+      ggridges::stat_density_ridges(quantile_lines = TRUE, quantiles = 2)
+
+ggplot2::ggsave(here::here("outputs", "density_plot_dist_to_coast_predictions_lost_gained.png"), dens, width = 9, height = 7)
 
 
 
+# multiplot
+jpeg(here::here("outputs", "figure6.jpeg"), width = 1320, height = 960)
+cowplot::ggdraw() +
+  cowplot::draw_plot(gHis_above, 0.02, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gLostGained, 0.48, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gMod_above, 0.02, 0.02, 0.46, 0.46) +
+  cowplot::draw_plot(densLostGained, 0.46, 0.02, 0.46, 0.46)
+  # cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
+  # cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
+  # cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic")
+dev.off()
 
-
-####################  PREDICTIONS WITHIN EEZS VS HIGH SEAS
-
-
-# Clip and plot predictions in high seas and add violin plot to compare them
-plot_predictions_in_high_seas(eez, predHis, predMod, wio)
-
-
-# Clip and plot predictions in high seas and add violin plot to compare them  (removing extrapolation zones)
-plot_predictions_in_high_seas_extra(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
-
-
-# Clip and plot predictions in all eezs and add violin plot to compare them  (removing extrapolation zones)
-plot_predictions_in_eezs_extra(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
-
-
-# Clip and plot predictions in high seas versus eezs with violin plot (removing extrapolation zones)
-plot_predictions_high_seas_vs_eezs_extra_violin(eez, predHis, predMod, df_extraHis, df_extraMod, wio)
 

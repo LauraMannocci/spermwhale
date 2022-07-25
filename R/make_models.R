@@ -529,7 +529,7 @@ make_cfact <- function (calibration_data, test_data, var_name, choice) {
   cfact <- WhatIf::whatif (formula = NULL,
                            data = make_X (calibration_data = calibration_data, test_data = calibration_data, var_name),
                            cfact = make_X (calibration_data = calibration_data, test_data = test_data, var_name),
-                           mc.cores = parallel::detectCores()/1.5,
+                           mc.cores = parallel::detectCores()/1.3,
                            choice = choice)
 
   # function to get the % of interpolations
@@ -2130,5 +2130,353 @@ plot_predictions_high_seas_vs_eezs_extra_violin <- function(eez_sh, pred_his, pr
     cowplot::draw_text("(e)", x = 0.58, y = 0.825, size = 25, fontface = "italic")
   dev.off()
 
+
+}
+
+
+
+#' Select threshold indicating highly suitable habitat (using max SSS following Liu et al 2013)
+#'
+#' @param occ
+#' @param bg
+#' @param modelstack
+#'
+#' @return
+#' @export
+#'
+
+select_sss_threshold <- function(occ, bg.z, modelstack){
+
+  # Create SWD object
+  data <- SDMtune::prepareSWD(species = "SW", p = occ, a = bg.z[c("Lon", "Lat")],
+                              env = modelstack)
+
+  # Train model (needed to get threshold)
+  model <- SDMtune::train(method = "Maxnet", data = data, fc = "l", reg = 1, iter = 500)
+
+  # Get Maximum training sensitivity plus specificity threshold (sss)
+  t <- SDMtune::thresholds(model, type = "logistic")
+
+  sss <- t[3,2]
+
+  return(sss)
+
+}
+
+
+
+
+#' Plot predictions above sss threshold with extrapolation extent and mpas
+#'
+#' @param wio
+#' @param df_pred
+#' @param type
+#' @param df_test
+#' @param mpa
+#' @param sss
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_with_extra_mpas_above_threshold <- function(wio, df_pred, type, df_test, mpa, sss){
+
+  #select extrapolation data points
+  df_test <- subset(df_test, cfact1 == -1)
+
+  #select predictions above sss threshold
+  df_pred_sss <- subset(df_pred, df_pred$value >= sss)
+
+  g <- ggplot2::ggplot() +
+    ggplot2::geom_tile(data = df_pred_sss, ggplot2::aes(x = x, y = y, fill = value)) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    #add mpas
+    ggplot2::geom_sf(data = mpa, color = "black", fill = NA, size = 0.6) +
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab(paste(type, "model")) +
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 10),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+  ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, "_mpas_above_threshold.png")), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
+
+
+
+#' Mask distance to coast with predictions above threshold
+#'
+#' @param pred
+#' @param df_extra
+#' @param sss
+#' @param dcoast
+#'
+#' @return
+#' @export
+#'
+
+mask_dist_to_coast_predictions_above_threshold <- function(dcoast, pred, df_extra, sss){
+
+  # set NA to predictions below sss
+  pred <- pred
+  pred[pred < sss] <- NA
+
+  #convert extrapolation df to raster
+  r_extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  #mask predictions that are in extrapolation zone
+  pred <- raster::mask(pred, r_extra, maskvalue = -1)
+
+  #get area of predictions (nb of cells) above threshold
+  print("area of predictions (nb of cells) above threshold")
+  print(raster::ncell(pred[!is.na(pred)]))
+
+  #mask distance to coast with these predictions
+  dcoast <- raster::aggregate(dcoast, fact = 20)
+  dcoast_masked <- raster::mask(dcoast, pred)
+
+  raster::plot(dcoast_masked)
+
+return(dcoast_masked)
+}
+
+
+
+
+
+
+#' Map high suitability predictions that have become low suitability and low suitability predictions that have become high suitability
+#'
+#' @param pred_mod
+#' @param pred_his
+#' @param sss_mod
+#' @param sss_his
+#' @param df_extra_mod
+#' @param df_extra_his
+#'
+#' @return
+#' @export
+#'
+
+plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, df_extra_mod, df_extra_his, mpa){
+
+  ##### get lost areas (high quality predictions in historical that have become low quality in modern)
+
+  # set NA to historical predictions below sss to get high quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 < sss_his] <- NA
+
+  # set NA to modern predictions above sss to get low quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 > sss_mod] <- NA
+
+  # mask to get high quality historical area that have become low quality
+  lost <- raster::mask(pred_his1, pred_mod1)
+  lost[!is.na(lost)] <- 1
+
+  # convert to dataframe for plotting
+  df_lost <- as(lost, "SpatialPixelsDataFrame")
+  df_lost <- as.data.frame(df_lost)
+  colnames(df_lost) <- c("value", "x", "y")
+
+
+  ##### get gained areas (low quality predictions in historical that have become high quality in modern)
+
+  # set NA to historical predictions above sss to get low quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 >= sss_his] <- NA
+
+  # set NA to modern predictions below sss to get high quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 <= sss_mod] <- NA
+
+  # mask to get low quality historical area that have become high quality
+  gained <- raster::mask(pred_his1, pred_mod1)
+  gained[!is.na(gained)] <- 1
+
+  # convert to dataframe for plotting
+  df_gained <- as(gained, "SpatialPixelsDataFrame")
+  df_gained <- as.data.frame(df_gained)
+  colnames(df_gained) <- c("value", "x", "y")
+
+  ##### prepare modern and historical extrapolation dataframe
+  df_extra_mod <- subset(df_extra_mod, cfact1 == -1)
+  df_extra_his <- subset(df_extra_his, cfact1 == -1)
+  df_extra <- rbind(df_extra_mod, df_extra_his)
+
+  g <- ggplot2::ggplot() +
+    #lost
+    ggplot2::geom_tile(data = df_lost, ggplot2::aes(x = x, y = y, fill = "lost")) +
+    #gained
+    ggplot2::geom_tile(data = df_gained, ggplot2::aes(x = x, y = y, fill = "gained")) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_extra, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    #add mpas
+    ggplot2::geom_sf(data = mpa, color = "black", fill = NA, size = 0.6) +
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::scale_fill_manual(values = c("lost" = "orange", "gained" ="blue"),
+                               labels = c("Lost high \nsuitability", "Gained high \nsuitability"),
+                               name = "") +
+    ggplot2::theme(legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 14),
+                   axis.title = ggplot2::element_blank(),
+                   axis.text = ggplot2::element_text(size = 10),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+  ggplot2::ggsave(here::here("outputs", "map_predictions_lost_gained.png"), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
+
+
+
+
+
+
+
+
+#' Mask distance to coast with lost predictions
+#'
+#' @param dcoast
+#' @param pred_mod
+#' @param pred_his
+#' @param sss_mod
+#' @param sss_his
+#' @param df_extra_mod
+#' @param df_extra_his
+#'
+#' @return
+#' @export
+#'
+
+mask_dist_to_coast_predictions_lost <- function(dcoast, pred_mod, pred_his, sss_mod, sss_his, df_extra_mod, df_extra_his){
+
+
+  ##### prepare modern and historical extrapolation dataframe
+  df_extra_mod <- subset(df_extra_mod, cfact1 == -1)
+  df_extra_his <- subset(df_extra_his, cfact1 == -1)
+  df_extra <- rbind(df_extra_mod, df_extra_his)
+
+  #convert extrapolation df to raster
+  r_extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+
+  ##### get lost areas (high quality predictions in historical that have become low quality in modern)
+
+  # set NA to historical predictions below sss to get high quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 < sss_his] <- NA
+
+  # set NA to modern predictions above sss to get low quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 > sss_mod] <- NA
+
+  # mask to get high quality historical area that have become low quality
+  lost <- raster::mask(pred_his1, pred_mod1)
+  lost[!is.na(lost)] <- 1
+
+  # mask lost predictions that are in extrapolation zone
+  lost <- raster::mask(lost, r_extra, maskvalue = -1)
+
+  # get area of predictions (nb of cells) above threshold
+  print("area of predictions for lost locations (nb of cells)")
+  print(raster::ncell(lost[!is.na(lost)]))
+
+  # mask distance to coast with these predictions
+  dcoast <- raster::aggregate(dcoast, fact = 20)
+  dcoast_masked <- raster::mask(dcoast, lost)
+
+  raster::plot(dcoast_masked)
+
+  return(dcoast_masked)
+
+}
+
+
+
+
+
+
+
+#' Mask distance to coast with gained predictions
+#'
+#' @param dcoast
+#' @param pred_mod
+#' @param pred_his
+#' @param sss_mod
+#' @param sss_his
+#' @param df_extra_mod
+#' @param df_extra_his
+#'
+#' @return
+#' @export
+#'
+
+mask_dist_to_coast_predictions_gained <- function(dcoast, pred_mod, pred_his, sss_mod, sss_his, df_extra_mod, df_extra_his){
+
+
+  ##### prepare modern and historical extrapolation dataframe
+  df_extra_mod <- subset(df_extra_mod, cfact1 == -1)
+  df_extra_his <- subset(df_extra_his, cfact1 == -1)
+  df_extra <- rbind(df_extra_mod, df_extra_his)
+
+  #convert extrapolation df to raster
+  r_extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+
+  ##### get gained areas (high quality predictions in historical that have become low quality in modern)
+
+  # set NA to historical predictions above sss to get low quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 >= sss_his] <- NA
+
+  # set NA to modern predictions below sss to get high quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 <= sss_mod] <- NA
+
+  # mask to get low quality historical area that have become high quality
+  gained <- raster::mask(pred_his1, pred_mod1)
+  gained[!is.na(gained)] <- 1
+
+  # mask gained predictions that are in extrapolation zone
+  gained <- raster::mask(gained, r_extra, maskvalue = -1)
+
+  # get area of predictions (nb of cells) above threshold
+  print("area of predictions for gained locations (nb of cells)")
+  print(raster::ncell(gained[!is.na(gained)]))
+
+  # mask distance to coast with these predictions
+  dcoast <- raster::aggregate(dcoast, fact = 20)
+  dcoast_masked <- raster::mask(dcoast, gained)
+
+  raster::plot(dcoast_masked)
+
+  return(dcoast_masked)
 
 }
