@@ -59,7 +59,7 @@ checkerboard_partitioning <- function (occ, occ.z, bg, bg.z, modelstack){
 #' @export
 #'
 
-evaluate_model <- function(occ, modelstack, bg, args, user.grp, type) {
+evaluate_model <- function(occ, modelstack, bg, args, user.grp, type, sensitivity = FALSE) {
 
   # # Define a custom function that implements a performance metric not included in ENMeval.
   # # The function should have a single argument "vars", which is a list that includes the
@@ -92,9 +92,15 @@ evaluate_model <- function(occ, modelstack, bg, args, user.grp, type) {
 
   #Visualizing evaluation results
 
-  jpeg(here::here("outputs", paste0("model_evaluation_", type, ".jpeg")), width = 1000, height = 700)
-  print(ENMeval::evalplot.stats(e = mod, stats = "auc.val", color = "fc", x.var = "rm"))
-  dev.off()
+  if (sensitivity == TRUE){
+    jpeg(here::here("outputs", paste0("model_evaluation_", type, "_sensitivity.jpeg")), width = 1000, height = 700)
+    print(ENMeval::evalplot.stats(e = mod, stats = "auc.val", color = "fc", x.var = "rm"))
+    dev.off()
+  }else{
+    jpeg(here::here("outputs", paste0("model_evaluation_", type, ".jpeg")), width = 1000, height = 700)
+    print(ENMeval::evalplot.stats(e = mod, stats = "auc.val", color = "fc", x.var = "rm"))
+    dev.off()
+  }
 
   return(mod)
 
@@ -113,13 +119,17 @@ evaluate_model <- function(occ, modelstack, bg, args, user.grp, type) {
 #' @export
 #'
 
-select_best_model <- function(mod, type){
+select_best_model <- function(mod, type, sensitivity = FALSE){
 
   # get overall results
   res <- ENMeval::eval.results(mod)
 
   # save metrics
-  write.csv(res, here::here("outputs", paste0("metrics_ranking_", type,"_model.csv")))
+  if (sensitivity == TRUE){
+    write.csv(res, here::here("outputs", paste0("metrics_ranking_", type,"_model_sensitivity.csv")))
+  }else{
+    write.csv(res, here::here("outputs", paste0("metrics_ranking_", type,"_model.csv")))
+  }
 
   # select models maximizing auc
   opt <- res %>%
@@ -144,7 +154,7 @@ select_best_model <- function(mod, type){
 #' @export
 #'
 
-make_coefficients_plot <- function(df_coef, ylim){
+make_coefficients_plot <- function(df_coef, ylim, sensitivity = FALSE){
 
   p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, color = type)) +
     ggplot2::geom_point() +
@@ -159,7 +169,11 @@ make_coefficients_plot <- function(df_coef, ylim){
                                                                                                  label.position="left", label.hjust = 0.5, label.vjust = 0,
                                                                                                  label.theme = ggplot2::element_text(angle = 0)))
 
-  ggplot2::ggsave(here::here("outputs", "coefficients_plot.png"), p, width = 10, height = 7)
+  if (sensitivity == TRUE){
+    ggplot2::ggsave(here::here("outputs", "coefficients_plot_sensitivity.png"), p, width = 10, height = 7)
+  }else{
+    ggplot2::ggsave(here::here("outputs", "coefficients_plot.png"), p, width = 10, height = 7)
+  }
 
   return(p)
 
@@ -182,7 +196,7 @@ make_coefficients_plot <- function(df_coef, ylim){
 #' @export
 #'
 
-make_coefficients_barplot <- function(df_coef, ylim){
+make_coefficients_barplot <- function(df_coef, ylim, sensitivity = FALSE){
 
   p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, fill = type, width = 0.8)) +
     ggplot2::geom_bar(position="dodge", stat="identity") +
@@ -200,7 +214,11 @@ make_coefficients_barplot <- function(df_coef, ylim){
     ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
                                                                                                label.position="right"))
 
-  ggplot2::ggsave(here::here("outputs", "coefficients_barplot.png"), p, width = 10, height = 7)
+  if (sensitivity == TRUE){
+    ggplot2::ggsave(here::here("outputs", "coefficients_barplot_sensitivity.png"), p, width = 10, height = 7)
+  }else{
+    ggplot2::ggsave(here::here("outputs", "coefficients_barplot.png"), p, width = 10, height = 7)
+  }
 
   return(p)
 
@@ -277,7 +295,7 @@ plot_partial_curves <- function (x, vars = names(x$samplemeans), common.scale = 
 #' @export
 #'
 
-plot_partial_curves_together <- function (dathis, datmod, var_name){
+plot_partial_curves_together <- function (dathis, datmod, var_name, sensitivity = FALSE){
 
   # x limits
   if (var_name == "depth"){
@@ -300,7 +318,11 @@ plot_partial_curves_together <- function (dathis, datmod, var_name){
                    panel.grid.major = ggplot2::element_line(colour = "grey90"),
                    axis.line = ggplot2::element_line(color="black"))
 
-  ggplot2::ggsave(here::here("outputs", paste0("partial_plots_together_", var_name, ".png")), p, width = 9, height = 7)
+  if (sensitivity == TRUE){
+    ggplot2::ggsave(here::here("outputs", paste0("partial_plots_together_", var_name, "_sensitivity.png")), p, width = 9, height = 7)
+  }else{
+    ggplot2::ggsave(here::here("outputs", paste0("partial_plots_together_", var_name, ".png")), p, width = 9, height = 7)
+  }
 
   return(p)
 
@@ -916,7 +938,7 @@ compare_predictions_extra <- function(pred_his, df_extra_his, pred_mod, df_extra
   print(median(df_pred_mod$value))
 
 
-  ### kruskall tests of predictions in mpa vs all predictions
+  ### kruskal tests of predictions in mpa vs all predictions
   # non-parametric method for testing whether samples originate from the same distribution
   print(kruskal.test(value ~ type, data = df))
 
@@ -938,7 +960,7 @@ compare_predictions_extra <- function(pred_his, df_extra_his, pred_mod, df_extra
 
 
 
-#' test for "residual" mpa effect with kruskall test
+#' test for "residual" mpa effect (in mpa vs whole region) with kruskal test
 #'
 #' @param pred
 #' @param df_pred
@@ -949,7 +971,7 @@ compare_predictions_extra <- function(pred_his, df_extra_his, pred_mod, df_extra
 #' @export
 #'
 
-test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
+test_residual_mpa_effect_mpa_vs_region <- function(pred, df_pred, mpa_sf, name){
 
   # mask predictions with mpa and convert to dataframe
   mpamod <- raster::mask(pred, mpa_sf)
@@ -957,7 +979,7 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
   df_mpamod <- as.data.frame(df_mpamod)
   colnames(df_mpamod) <- c("value", "x", "y")
 
-  ### kruskall tests of predictions in mpa vs all predictions
+  ### kruskal tests of predictions in mpa vs all predictions
   # non-parametric method for testing whether samples originate from the same distribution
   df_mpamod$type <- factor(c('mpa'))
   df_pred$type <- factor(c('region'))
@@ -973,7 +995,7 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
 
 
 
-#' test for "residual" mpa effect with kruskall test (removing extrapolation zones)
+#' test for "residual" mpa effect (in mpa vs whole region) with kruskal test (removing extrapolation zones)
 #'
 #' @param pred
 #' @param mpa_sf
@@ -984,7 +1006,7 @@ test_residual_mpa_effect <- function(pred, df_pred, mpa_sf, name){
 #' @export
 #'
 
-test_residual_mpa_effect_extra <- function(pred, df_extra, mpa_sf, name){
+test_residual_mpa_effect_mpa_vs_region_extra <- function(pred, df_extra, mpa_sf, name){
 
   # convert extrapolation dataframe to raster
   extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
@@ -1008,13 +1030,65 @@ test_residual_mpa_effect_extra <- function(pred, df_extra, mpa_sf, name){
   df <- rbind(df_pred, df_pred_mpa)
   df$model <- factor(name)
 
-  ### kruskall tests of predictions in mpa vs all predictions
+  ### kruskal tests of predictions in mpa vs whole region
   # non-parametric method for testing whether samples originate from the same distribution
+  print("kruskal tests of predictions in mpa vs whole region")
   print(kruskal.test(value ~ type, data = df))
 
   return(df)
 }
 
+
+
+
+#' test for "residual" mpa effect (in mpa vs out mpa) with kruskal test (removing extrapolation zones)
+#'
+#' @param pred
+#' @param mpa_sf
+#' @param name
+#' @param df_extra
+#'
+#' @return
+#' @export
+#'
+
+test_residual_mpa_effect_mpa_vs_outmpa_extra <- function(pred, df_extra, mpa_sf, name){
+
+  # convert extrapolation dataframe to raster
+  extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
+
+  # mask predictions raster with extrapolation (-1 value) raster and convert to dataframe
+  extra[extra == -1] <- NA
+  pred <- raster::mask(pred, extra)
+  df_pred <- as(pred, "SpatialPixelsDataFrame")
+  df_pred <- as.data.frame(df_pred)
+  colnames(df_pred) <- c("value", "x", "y")
+
+  # mask predictions with mpa and convert to dataframe
+  pred_mpa <- raster::mask(pred, mpa_sf)
+  df_pred_mpa <- as(pred_mpa, "SpatialPixelsDataFrame")
+  df_pred_mpa <- as.data.frame(df_pred_mpa)
+  colnames(df_pred_mpa) <- c("value", "x", "y")
+
+  # inverse mask predictions with mpa and convert to dataframe
+  pred_out <- raster::mask(pred, mpa_sf, inverse = T)
+  df_pred_out <- as(pred_out, "SpatialPixelsDataFrame")
+  df_pred_out <- as.data.frame(df_pred_out)
+  colnames(df_pred_out) <- c("value", "x", "y")
+
+  #bind dataframes
+  df_pred_out$type <- factor(c('out'))
+  df_pred_mpa$type <- factor(c('mpa'))
+  df <- rbind(df_pred_mpa, df_pred_out)
+  df$model <- factor(name)
+
+  ### kruskal tests of predictions in mpa vs out mpa
+  # non-parametric method for testing whether samples originate from the same distribution
+  print("kruskal tests of predictions in mpa vs out mpa")
+  print(kruskal.test(value ~ type, data = df))
+
+  return(df)
+}
 
 
 
@@ -1029,7 +1103,7 @@ test_residual_mpa_effect_extra <- function(pred, df_extra, mpa_sf, name){
 #' @export
 #'
 
-calculate_median_predictions_in_out_mpa_extra <- function(pred, df_extra, mpa_sf){
+calculate_median_predictions_mpa_vs_outmpa_extra <- function(pred, df_extra, mpa_sf){
 
   # convert extrapolation dataframe to raster
   extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")
@@ -1056,7 +1130,7 @@ calculate_median_predictions_in_out_mpa_extra <- function(pred, df_extra, mpa_sf
   #calculating medians in and out mpa
   print("median in mpa :")
   print(median(df_pred_inmpa$value))
-  print("median oustide mpa :")
+  print("median out mpa :")
   print(median(df_pred_outmpa$value))
 
 }
@@ -1073,7 +1147,7 @@ calculate_median_predictions_in_out_mpa_extra <- function(pred, df_extra, mpa_sf
 #' @export
 #'
 
-calculate_median_predictions_in_mpa_all_region_extra <- function(pred, df_extra, mpa_sf){
+calculate_median_predictions_mpa_vs_region_extra <- function(pred, df_extra, mpa_sf){
 
   # convert extrapolation dataframe to raster
   extra <- raster::rasterFromXYZ(df_extra[,c("x", "y", "cfact1")], crs = "+proj=longlat +datum=WGS84 +no_defs")

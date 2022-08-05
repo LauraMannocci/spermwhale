@@ -28,7 +28,7 @@ read_clean_mod_data <- function(){
   dat <- dat[c("Lon", "Lat")]
   dat <- dat[!duplicated(dat),]
   dat <- dat[which(dat$Lon < 84.75), ]
-  #remove erroneous observation
+  #remove erroneous observation (far from transect)
   dat <- dat[which(dat$Lat > -33.34), ]
 
   return(dat)

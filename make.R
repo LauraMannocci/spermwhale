@@ -97,8 +97,8 @@ dim(SPHis) #602
 SPHis <- SPHis[!duplicated(SPHis),]
 SPMod <- SPMod[!duplicated(SPMod),]
 
-dim(SPMod)
-dim(SPHis)
+dim(SPMod)#219
+dim(SPHis)#543
 
 
 
@@ -110,7 +110,7 @@ dim(SPHis)
 # map sperm whale occurrences
 jpeg(here::here("outputs", "occurrences.jpeg"), width = 1100, height = 550)
 par(mfrow=c(1,2), mar=c(2,2,2,6))
-raster::plot(depth.m, main="Historical (n=602)", legend = FALSE)
+raster::plot(depth.m, main="Historical (n=543)", legend = FALSE)
 maps::map('world', fill=T, col= "grey", add=TRUE)
 points(SPHis,col="black", pch=20)
 raster::plot(depth.m, main="Modern (n=219)")
@@ -301,14 +301,14 @@ cbHis <- checkerboard_partitioning(SPHis, SPHis.z, BgHis[,c("Lon", "Lat")], BgHi
 SPMod.x <- evaluate_model(SPMod,
                           modelStack,
                           BgMod,
-                          list(fc = c("L", "Q"), rm = 1), #only linear fc / impose low penalty on model complexity
+                          list(fc = c("L", "Q"), rm = 1), #linear and quadratic - impose low penalty on model complexity
                           list(occs.grp = cbMod$occs.grp, bg.grp = cbMod$bg.grp),
                           "modern")
 
 SPHis.x <- evaluate_model(SPHis,
                           modelStack,
                           BgHis[,c("Lon", "Lat")],
-                          list(fc = c("L", "Q"), rm = 1), #only linear fc /  impose low penalty on model complexity
+                          list(fc = c("L", "Q"), rm = 1), #linear and quadratic - impose low penalty on model complexity
                           list(occs.grp = cbHis$occs.grp, bg.grp = cbHis$bg.grp),
                           "historical")
 
@@ -508,20 +508,17 @@ compare_predictions_extra(predHis, df_extraHis, predMod, df_extraMod)
 
 
 
-# test for "residual" mpa effect with kruskall test (removing extrapolation zones)
-df_mpaHis <- test_residual_mpa_effect_extra(predHis,  df_extraHis, mpa_sf, "Historical")
-df_mpaMod <- test_residual_mpa_effect_extra(predMod, df_extraMod, mpa_sf, "Modern")
+# test for "residual" mpa effect (mpa vs whole region) with kruskal test (removing extrapolation zones)
+df_mpaHis <- test_residual_mpa_effect_mpa_vs_region_extra(predHis,  df_extraHis, mpa_sf, "Historical")
+df_mpaMod <- test_residual_mpa_effect_mpa_vs_region_extra(predMod, df_extraMod, mpa_sf, "Modern")
 
-
-
-# density plot of prediction distributions for all predictions vs predictions in mpa (removing extrapolation zones)
+# density plot of prediction distributions for predictions in mpa vs whole region (removing extrapolation zones)
 df_mpa <- rbind(df_mpaHis, df_mpaMod)
-df_mpa$type <- factor(df_mpa$type , levels=c("region", "mpa"))
 
 df_mpa <- df_mpa %>%
   dplyr::mutate(model = forcats::fct_relevel(model, levels = "Modern", "Historical"))
 
-dens <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill = model, alpha = type, linetype = type, scale = 0.9)) +
+dens_mpa_region <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill = model, alpha = type, linetype = type, scale = 0.9)) +
   ggridges::geom_density_ridges() +
   ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
   ggplot2::scale_alpha_manual(values = c(0.6, .1)) +
@@ -533,27 +530,55 @@ dens <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill =
                  axis.title = ggplot2::element_text(size = 18)) +
   ggridges::stat_density_ridges(quantile_lines = TRUE, quantiles = 2)
 
-ggplot2::ggsave(here::here("outputs", "density_plot_all_models.png"), dens, width = 9, height = 7)
+ggplot2::ggsave(here::here("outputs", "density_plot_all_models_mpa_vs_region.png"), dens_mpa_region, width = 9, height = 7)
+
+
+
+
+# test for "residual" mpa effect (mpa vs out mpa) with kruskal test (removing extrapolation zones)
+df_mpaHis <- test_residual_mpa_effect_mpa_vs_outmpa_extra(predHis,  df_extraHis, mpa_sf, "Historical")
+df_mpaMod <- test_residual_mpa_effect_mpa_vs_outmpa_extra(predMod, df_extraMod, mpa_sf, "Modern")
+
+# density plot of prediction distributions for predictions in mpa vs out mpa (removing extrapolation zones)
+df_mpa <- rbind(df_mpaHis, df_mpaMod)
+df_mpa$type <- factor(df_mpa$type , levels=c("out", "mpa"))
+
+df_mpa <- df_mpa %>%
+  dplyr::mutate(model = forcats::fct_relevel(model, levels = "Modern", "Historical"))
+
+dens_mpa_out <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill = model, alpha = type, linetype = type, scale = 0.9)) +
+  ggridges::geom_density_ridges() +
+  ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
+  ggplot2::scale_alpha_manual(values = c(0.6, .1)) +
+  ggplot2::xlab('Habitat suitability') +
+  ggplot2::ylab("") +
+  ggplot2::theme_light() +
+  ggplot2::theme(legend.position = "none",
+                 axis.text = ggplot2::element_text(size = 18),
+                 axis.title = ggplot2::element_text(size = 18)) +
+  ggridges::stat_density_ridges(quantile_lines = TRUE, quantiles = 2)
+
+ggplot2::ggsave(here::here("outputs", "density_plot_all_models_mpa_vs_outmpa.png"), dens_mpa_out, width = 9, height = 7)
 
 
 
 
 # Calculate median predictions in and out of mpas (removing extrapolation zones)
-calculate_median_predictions_in_out_mpa_extra(predHis, df_extraHis, mpa_sf)
-calculate_median_predictions_in_out_mpa_extra(predMod, df_extraMod, mpa_sf)
+calculate_median_predictions_mpa_vs_outmpa_extra(predHis, df_extraHis, mpa_sf)
+calculate_median_predictions_mpa_vs_outmpa_extra(predMod, df_extraMod, mpa_sf)
 
-# Calculate median predictions in mpas vs in all region (removing extrapolation zones)
-calculate_median_predictions_in_mpa_all_region_extra(predHis, df_extraHis, mpa_sf)
-calculate_median_predictions_in_mpa_all_region_extra(predMod, df_extraMod, mpa_sf)
+# Calculate median predictions in mpas vs in whole region (removing extrapolation zones)
+calculate_median_predictions_mpa_vs_region_extra(predHis, df_extraHis, mpa_sf)
+calculate_median_predictions_mpa_vs_region_extra(predMod, df_extraMod, mpa_sf)
 
 
 # multiplot
 jpeg(here::here("outputs", "figure5.jpeg"), width = 1320, height = 960)
 cowplot::ggdraw() +
   cowplot::draw_plot(gHis, 0.02, 0.52, 0.46, 0.46) +
-  cowplot::draw_plot(dens, 0.46, 0.52, 0.46, 0.46) +
-  cowplot::draw_plot(gMod, 0.02, 0.02, 0.46, 0.46) +
-  cowplot::draw_plot(res, 0.46, 0.02, 0.46, 0.46) +
+  cowplot::draw_plot(gMod, 0.46, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(res, 0.02, 0.02, 0.46, 0.46) +
+  cowplot::draw_plot(dens_mpa_out, 0.46, 0.02, 0.46, 0.46) +
   cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
   cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
   cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic") +
@@ -570,7 +595,7 @@ dev.off()
 sssMod <- select_sss_threshold(SPMod, BgMod.z, modelStack)
 sssMod #0.4346055
 sssHis <- select_sss_threshold(SPHis, BgHis.z, modelStack)
-sssHis #0.4856536
+sssHis #0.5369416
 
 
 # Plot predictions above sss threshold with extrapolation extent and mpas
@@ -606,6 +631,7 @@ df$model <- factor(df$model , levels=c("Lost", "Gained"))
 densLostGained <- ggplot2::ggplot(data = df, ggplot2::aes(x = di_coast, y = model, fill = model, scale = 0.5)) +
       ggridges::geom_density_ridges(panel_scaling = FALSE) +
       ggplot2::scale_fill_manual(values = c("orange","blue")) +
+      ggplot2::scale_x_continuous(breaks = seq(0, 2800, 400)) +
       ggplot2::xlab('Distance to coast (km)') +
       ggplot2::ylab("") +
       ggplot2::theme_light() +
@@ -614,7 +640,7 @@ densLostGained <- ggplot2::ggplot(data = df, ggplot2::aes(x = di_coast, y = mode
                      axis.title = ggplot2::element_text(size = 18)) +
       ggridges::stat_density_ridges(quantile_lines = TRUE, quantiles = 2)
 
-ggplot2::ggsave(here::here("outputs", "density_plot_dist_to_coast_predictions_lost_gained.png"), dens, width = 9, height = 7)
+ggplot2::ggsave(here::here("outputs", "density_plot_dist_to_coast_predictions_lost_gained.png"), densLostGained, width = 9, height = 7)
 
 
 
@@ -622,12 +648,159 @@ ggplot2::ggsave(here::here("outputs", "density_plot_dist_to_coast_predictions_lo
 jpeg(here::here("outputs", "figure6.jpeg"), width = 1320, height = 960)
 cowplot::ggdraw() +
   cowplot::draw_plot(gHis_above, 0.02, 0.52, 0.46, 0.46) +
-  cowplot::draw_plot(gLostGained, 0.48, 0.52, 0.46, 0.46) +
-  cowplot::draw_plot(gMod_above, 0.02, 0.02, 0.46, 0.46) +
-  cowplot::draw_plot(densLostGained, 0.46, 0.02, 0.46, 0.46)
-  # cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
-  # cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
-  # cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic")
+  cowplot::draw_plot(gMod_above, 0.48, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gLostGained, 0.035, 0.035, 0.465, 0.465) +
+  cowplot::draw_plot(densLostGained, 0.46, 0.02, 0.46, 0.46)+
+  cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.48, y = 0.47, size = 25, fontface = "italic")
 dev.off()
+
+
+
+#################### SENSIVITY ANALYSIS (reducing nb of historical occurrences to nb of modern occurrences)
+
+
+indices <- sample(1:nrow(SPHis), size = nrow(SPMod), replace = F)
+SPHis1 <- SPHis[indices,]
+
+#-------------------------------------- redo analysis
+
+
+
+####################  MAKE QUICK MAPS
+
+# map sperm whale occurrences
+jpeg(here::here("outputs", "occurrences_sensitivity.jpeg"), width = 1100, height = 550)
+par(mfrow=c(1,2), mar=c(2,2,2,6))
+raster::plot(depth.m, main="Historical (n=219)", legend = FALSE)
+maps::map('world', fill=T, col= "grey", add=TRUE)
+points(SPHis1,col="black", pch=20)
+raster::plot(depth.m, main="Modern (n=219)")
+maps::map('world',fill=T , col= "grey", add=TRUE)
+points(SPMod,col="black", pch=20)
+dev.off()
+
+
+
+####################  PREPARATION OF OCCURRENCES
+
+# Let's now remove occurrences that are cell duplicates -- these are
+# occurrences that share a grid cell in the predictor variable rasters.
+SPHis1 <- remove_duplicates_occ(modelStack, SPHis1)
+
+
+# Extract the predictor variable values at our occurrence localities.
+SPHis1.z <- extract_bathy_at_point(modelStack, SPHis1)
+
+
+# Violin plots of predictors for occurrences
+SPHis1.z$type <- factor(c('Historical'))
+SPMod.z$type <- factor(c('Modern'))
+Mod.Hist <- rbind(SPHis1.z, SPMod.z)
+
+
+
+
+#################### MODEL EVALUATION
+
+
+# do the checkerboard partitioning
+cbHis1 <- checkerboard_partitioning(SPHis1, SPHis1.z, BgHis[,c("Lon", "Lat")], BgHis.z, modelStack)
+
+
+# model evaluation with user partition
+
+SPHis1.x <- evaluate_model(SPHis1,
+                          modelStack,
+                          BgHis[,c("Lon", "Lat")],
+                          list(fc = c("L", "Q"), rm = 1), #linear and quadratic - impose low penalty on model complexity
+                          list(occs.grp = cbHis1$occs.grp, bg.grp = cbHis1$bg.grp),
+                          "historical",
+                          sensitivity = TRUE)
+
+
+
+
+
+
+
+####################  MODEL SELECTION AND OPTIMISATION
+
+# select best model
+opt.seqHis1 <- select_best_model(SPHis1.x, "Historical", sensitivity = TRUE)
+
+
+# write best model metrics
+best_model_metrics <- rbind(opt.seqHis1, opt.seqMod)
+best_model_metrics$type <- factor(c('Historical', 'Modern'))
+write.csv(best_model_metrics, here::here("outputs", "metrics_best_models_sensitivity.csv"))
+
+
+# We can select a single model from the ENMevaluation object using the tune.args of our optimal model
+mod.seqHis1 <- ENMeval::eval.models(SPHis1.x)[[opt.seqHis1$tune.args]]
+
+
+
+
+
+
+####################  MODEL COEFFICIENTS AND PARTIAL PLOTS
+
+# Here are the non-zero coefficients in our model.
+coefHis1 <- tibble::enframe(mod.seqHis1$betas)
+
+coefHis1$type <- factor(c('Historical'))
+
+Coef <- rbind(coefHis1, coefMod)
+write.csv(Coef, here::here("outputs", "coefficients_sensitivity.csv"))
+
+
+
+# plot coefficients
+coefsp <- make_coefficients_plot(Coef, c(-0.004, 0.002), sensitivity = TRUE)
+
+
+
+# barplot version
+coefBar <- make_coefficients_barplot(Coef, c(-0.004, 0.002), sensitivity = TRUE)
+
+
+
+
+
+# partial plots
+
+# And these are the marginal response curves for the predictor variables with non-zero
+# coefficients in our model. We define the y-axis to be the cloglog transformation, which
+# is an approximation of occurrence probability (with assumptions) bounded by 0 and 1
+# (Phillips et al. 2017).
+
+
+# on separate plots
+jpeg(here::here("outputs", "partial_plot_historical_sensitivity.jpeg"), width = 1000, height = 700)
+plot_partial_curves(mod.seqHis1, type = "cloglog", lwd = 5, col = "#F8766D")
+dev.off()
+
+
+
+# together on the same plot
+
+dat_his = plot_partial_curves(mod.seqHis1, type = "cloglog")
+dat_mod = plot_partial_curves(mod.seqMod, type = "cloglog")
+
+
+p1 <- plot_partial_curves_together(dat_his, dat_mod, "depth", sensitivity = TRUE)
+p2 <- plot_partial_curves_together(dat_his, dat_mod, "slope", sensitivity = TRUE)
+p3 <- plot_partial_curves_together(dat_his, dat_mod, "di_1000m", sensitivity = TRUE)
+p4 <- plot_partial_curves_together(dat_his, dat_mod, "di_seaM", sensitivity = TRUE)
+p5 <- plot_partial_curves_together(dat_his, dat_mod, "di_spRid", sensitivity = TRUE)
+
+# multiplot
+jpeg(here::here("outputs", "partial_plots_sensitivity.jpeg"), width = 1000, height = 700)
+gridExtra::grid.arrange(p1, p2, p3, p4, p5, ncol=3)
+dev.off()
+
 
 
