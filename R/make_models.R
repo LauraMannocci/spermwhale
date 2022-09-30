@@ -2397,7 +2397,7 @@ barplot_predictions_in_out_mpas_above_threshold <- function(pred_mod, pred_his, 
     ggplot2::coord_flip() +
     ggplot2::xlab("") +
     ggplot2::scale_x_discrete(labels=c("Modern", "Historical")) +
-    ggplot2::ylab("Number of high quality cells") +
+    ggplot2::ylab("Number of cells with high relative habitat suitability") +
     ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
     ggplot2::scale_alpha_manual(values = c(1, .3)) +
     ggplot2::theme_light() +

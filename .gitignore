@@ -21,3 +21,8 @@ man/
 
 #ignore rdata
 *.RData
+
+
+make_for_pc.RData
+make_for_server.RData
+make_for_server.R

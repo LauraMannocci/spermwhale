@@ -17,7 +17,7 @@ devtools::load_all()
 #document functions
 devtools::document()
 
-#utiliser les pipes dans les fonctions
+#use pipes in functions
 usethis::use_pipe()
 
 #to automatically add/remove dependencies
