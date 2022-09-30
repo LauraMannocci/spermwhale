@@ -2336,6 +2336,88 @@ return(dcoast_masked)
 
 
 
+#' barplot of nb of cells above thresholds in and out of MPAs for historical and modern predictions
+#'
+#' @param pred_mod
+#' @param pred_his
+#' @param sss_mod
+#' @param sss_his
+#' @param mpa
+#'
+#' @return
+#' @export
+#'
+
+barplot_predictions_in_out_mpas_above_threshold <- function(pred_mod, pred_his, sss_mod, sss_his, mpa){
+
+  # --- historical
+  # set NA to predictions below sss to get high quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 < sss_his] <- NA
+
+  # mask with mpas
+  pred_his_inmpa <- raster::mask(pred_his1, mpa)
+  pred_his_outmpa <- raster::mask(pred_his1, mpa, inverse = TRUE)
+
+  # get nb of cells
+  nb_his_inmpa <- raster::cellStats(pred_his_inmpa, sta="sum", na.rm=TRUE)
+  nb_his_outmpa <- raster::cellStats(pred_his_outmpa, sta="sum", na.rm=TRUE)
+
+  # --- modern
+  # set NA to predictions above sss to get high quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 < sss_mod] <- NA
+
+  # mask with mpas
+  pred_mod_inmpa <- raster::mask(pred_mod1, mpa)
+  pred_mod_outmpa <- raster::mask(pred_mod1, mpa, inverse = TRUE)
+
+  # get nb of cells
+  nb_mod_inmpa <- raster::cellStats(pred_mod_inmpa, sta="sum", na.rm=TRUE)
+  nb_mod_outmpa <- raster::cellStats(pred_mod_outmpa, sta="sum", na.rm=TRUE)
+
+
+
+
+  ##### data prep
+
+  df <- data.frame(nb = c(nb_his_inmpa, nb_his_outmpa, nb_mod_inmpa, nb_mod_outmpa),
+                   mpa = c("in", "out", "in", "out"),
+                   model = c("his", "his", "mod", "mod"))
+
+  df <- df %>%
+    dplyr::mutate(model = forcats::fct_relevel(model, levels = "mod", "his")) %>%
+    dplyr::mutate(mpa = forcats::fct_relevel(mpa, levels = "out", "in"))
+
+
+  ##### barplot
+
+  g <- ggplot2::ggplot(df, ggplot2::aes(x = model, y = nb, fill = model, alpha = mpa, linetype = mpa, width = 0.8)) +
+    ggplot2::geom_bar(position="dodge", stat="identity", colour="black") +
+    ggplot2::coord_flip() +
+    ggplot2::xlab("") +
+    ggplot2::scale_x_discrete(labels=c("Modern", "Historical")) +
+    ggplot2::ylab("Number of high quality cells") +
+    ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
+    ggplot2::scale_alpha_manual(values = c(1, .3)) +
+    ggplot2::theme_light() +
+    ggplot2::theme(legend.position = 'none',
+                   axis.text = ggplot2::element_text(size = 18),
+                   axis.title = ggplot2::element_text(size = 18),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+
+  ggplot2::ggsave(here::here("outputs", "barplot_predictions_in_out_mpas_above_threshold.png"), g, width = 9, height = 7)
+
+  return(g)
+
+}
+
+
+
+
+
+
 #' Map high suitability predictions that have become low suitability and low suitability predictions that have become high suitability
 #'
 #' @param pred_mod
@@ -2365,6 +2447,13 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
   lost <- raster::mask(pred_his1, pred_mod1)
   lost[!is.na(lost)] <- 1
 
+  cat("nb of cells corresponding to lost areas: \n")
+  cat(raster::cellStats(lost, sta="sum", na.rm=TRUE), "\n")
+
+  cat("approximate area of cells (in million ha) corresponding to lost areas: \n")
+  #Knowing that 0.1666667 degrees is approximately 18.5km
+  cat((raster::cellStats(lost, sta="sum", na.rm=TRUE)*18.5*18.5*100)/10^6, "\n") # conversion from sqkm to ha and then million ha
+
   # convert to dataframe for plotting
   df_lost <- as(lost, "SpatialPixelsDataFrame")
   df_lost <- as.data.frame(df_lost)
@@ -2385,10 +2474,18 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
   gained <- raster::mask(pred_his1, pred_mod1)
   gained[!is.na(gained)] <- 1
 
+  cat("nb of cells corresponding to gained areas: \n")
+  cat(raster::cellStats(gained, sta="sum", na.rm=TRUE), "\n")
+
+  cat("approximate area of cells (in million ha) corresponding to gained areas: \n")
+  #Knowing that 0.1666667 degrees is approximately 18.5km
+  cat((raster::cellStats(gained, sta="sum", na.rm=TRUE)*18.5*18.5*100)/10^6, "\n") # conversion from sqkm to ha and then million ha
+
   # convert to dataframe for plotting
   df_gained <- as(gained, "SpatialPixelsDataFrame")
   df_gained <- as.data.frame(df_gained)
   colnames(df_gained) <- c("value", "x", "y")
+
 
   ##### prepare modern and historical extrapolation dataframe
   df_extra_mod <- subset(df_extra_mod, cfact1 == -1)
@@ -2431,6 +2528,100 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
 
 
 
+
+
+
+
+#' Barplot of cell numbers for lost and gained habitat in and out of MPAs
+#'
+#' @param pred_mod
+#' @param pred_his
+#' @param sss_mod
+#' @param sss_his
+#' @param mpa
+#'
+#' @return
+#' @export
+#'
+
+barplot_cells_lost_gained_in_out_mpa <- function(pred_mod, pred_his, sss_mod, sss_his, mpa){
+
+  ##### get lost areas (high quality predictions in historical that have become low quality in modern)
+
+  # set NA to historical predictions below sss to get high quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 < sss_his] <- NA
+
+  # set NA to modern predictions above sss to get low quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 > sss_mod] <- NA
+
+  # mask to get high quality historical area that have become low quality
+  lost <- raster::mask(pred_his1, pred_mod1)
+  lost[!is.na(lost)] <- 1
+
+  # mask with mpas
+  lost_inmpa <- raster::mask(lost, mpa)
+  lost_outmpa <- raster::mask(lost, mpa, inverse = TRUE)
+
+  # get nb of cells
+  nb_lost_inmpa <- raster::cellStats(lost_inmpa, sta="sum", na.rm=TRUE)
+  nb_lost_outmpa <- raster::cellStats(lost_outmpa, sta="sum", na.rm=TRUE)
+
+
+
+  ##### get gained areas (low quality predictions in historical that have become high quality in modern)
+
+  # set NA to historical predictions above sss to get low quality predictions
+  pred_his1 <- pred_his
+  pred_his1[pred_his1 >= sss_his] <- NA
+
+  # set NA to modern predictions below sss to get high quality predictions
+  pred_mod1 <- pred_mod
+  pred_mod1[pred_mod1 <= sss_mod] <- NA
+
+  # mask to get low quality historical area that have become high quality
+  gained <- raster::mask(pred_his1, pred_mod1)
+  gained[!is.na(gained)] <- 1
+
+  # mask with mpas
+  gained_inmpa <- raster::mask(gained, mpa)
+  gained_outmpa <- raster::mask(gained, mpa, inverse = TRUE)
+
+  # get nb of cells
+  nb_gained_inmpa <- raster::cellStats(gained_inmpa, sta="sum", na.rm=TRUE)
+  nb_gained_outmpa <- raster::cellStats(gained_outmpa, sta="sum", na.rm=TRUE)
+
+  ##### data prep
+
+  df <- data.frame(nb = c(nb_lost_inmpa, nb_lost_outmpa, nb_gained_inmpa, nb_gained_outmpa),
+                   mpa = c("in", "out", "in", "out"),
+                   type = c("lost", "lost", "gained", "gained"))
+
+
+
+  ##### barplot
+
+  g <- ggplot2::ggplot(df, ggplot2::aes(x = mpa, y = nb, fill = type, width = 0.8)) +
+    ggplot2::geom_bar(position="dodge", stat="identity") +
+    ggplot2::xlab("") +
+    ggplot2::scale_x_discrete(labels=c("Inside MPAs", "Outside MPAs")) +
+    ggplot2::ylab("Number of cells") +
+    ggplot2::scale_fill_manual(values = c("lost" = "orange", "gained" ="blue"),
+                               labels = c("Lost", "Gained"),
+                               name = "") +
+    ggplot2::theme(legend.text = ggplot2::element_text(size = 14),
+                   axis.text = ggplot2::element_text(size = 12),
+                   axis.title = ggplot2::element_text(size = 14),
+                   panel.background = ggplot2::element_blank(),
+                   panel.grid.major = ggplot2::element_line(colour = "grey90"),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+  ggplot2::ggsave(here::here("outputs", "barplot_cells_lost_gained_in_out_mpa.png"), g, width = 9, height = 7)
+
+  return(g)
+
+}
 
 
 
@@ -2554,3 +2745,137 @@ mask_dist_to_coast_predictions_gained <- function(dcoast, pred_mod, pred_his, ss
   return(dcoast_masked)
 
 }
+
+
+
+
+
+
+#' make coefficients barplot for sensitivity analysis
+#'
+#' @param df_coef
+#' @param ylim
+#'
+#' @return
+#' @export
+#'
+
+make_coefficients_barplot_sensitivity <- function(df_coef, ylim){
+
+  p <- ggplot2::ggplot(df_coef, ggplot2::aes(x=name, y=value, fill = type, width = 0.8)) +
+    ggplot2::geom_bar(position="dodge", stat="identity") +
+    ggplot2::geom_errorbar(ggplot2::aes(ymin = value - sd, ymax = value + sd), width = 0.2,
+                  position = ggplot2::position_dodge(0.76)) +
+    ggforce::facet_zoom(ylim = ylim, zoom.size = 1) +
+    ggplot2::theme_light() +
+    ggplot2::theme(legend.title = ggplot2::element_blank(),
+                   axis.title.x = ggplot2::element_blank(),
+                   axis.title.y = ggplot2::element_text(size=20),
+                   legend.position = "right",
+                   legend.text = ggplot2::element_text(size=24),
+                   axis.text.y = ggplot2::element_text(size=16),
+                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 18)) +
+    ggplot2::ylab("Coefficients") +
+    ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
+    ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+                                                                                               label.position="right"))
+
+  ggplot2::ggsave(here::here("outputs", "coefficients_barplot_sensitivity.png"), p, width = 10, height = 7)
+
+  return(p)
+
+}
+
+
+
+
+#' Plot mean and sd historical predictions with extrapolation extent and mpas
+#'
+#' @param pred_mean
+#' @param pred_sd
+#' @param df_test
+#' @param mpa
+#' @param wio
+#'
+#' @return
+#' @export
+#'
+
+plot_mean_sd_historical_predictions_with_extra_mpas <- function(wio, pred_mean, pred_sd, df_test, mpa){
+
+  #--- mean
+
+  #convert raster to dataframe
+  df_pred_mean <- as(pred_mean, "SpatialPixelsDataFrame")
+  df_pred_mean <- as.data.frame(df_pred_mean)
+  colnames(df_pred_mean) <- c("value", "x", "y")
+
+  #select extrapolation data points
+  df_test <- subset(df_test, cfact1 == -1)
+
+  g_mean <- ggplot2::ggplot() +
+    ggplot2::geom_tile(data = df_pred_mean, ggplot2::aes(x = x, y = y, fill = value)) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::scale_fill_viridis_c(limits = c(0, 1), option = "viridis")+
+    #add mpas
+    ggplot2::geom_sf(data = mpa, color = "white", fill = NA, size = 0.6) +
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("")+
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 10),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+
+
+  #--- sd
+
+  #convert raster to dataframe
+  df_pred_sd <- as(pred_sd, "SpatialPixelsDataFrame")
+  df_pred_sd <- as.data.frame(df_pred_sd)
+  colnames(df_pred_sd) <- c("value", "x", "y")
+
+  g_sd <- ggplot2::ggplot() +
+    ggplot2::geom_tile(data = df_pred_sd, ggplot2::aes(x = x, y = y, fill = value)) +
+    #ask extrapolation mask
+    ggplot2::geom_tile(data = df_test, ggplot2::aes(x = x, y = y), fill = "grey30") +
+    ggplot2::scale_fill_viridis_c(option = "viridis")+
+    #add mpas
+    ggplot2::geom_sf(data = mpa, color = "white", fill = NA, size = 0.6) +
+    #add countries
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
+    ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
+    ggplot2::ylab("")+
+    ggplot2::xlab("")+
+    ggplot2::labs(fill = 'Habitat \nsuitability')+
+    ggplot2::theme(legend.position = "right",
+                   legend.justification = "left",
+                   legend.text = ggplot2::element_text(size = 17),
+                   legend.title = ggplot2::element_text(size = 17),
+                   axis.title = ggplot2::element_text(size = 18),
+                   axis.text = ggplot2::element_text(size = 10),
+                   legend.margin = ggplot2::margin(0,0,0,0),
+                   legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.border = ggplot2::element_rect(colour = "black", fill = NA))
+
+  #--- multiplot
+
+  png(here::here("outputs", "map_mean_sd_historical_predictions_with_extra_mpas.png"), width = 1320, height = 960)
+  print(cowplot::ggdraw() +
+    cowplot::draw_plot(g_mean, 0.22, 0.52, 0.46, 0.46) +
+    cowplot::draw_plot(g_sd, 0.22, 0.02, 0.46, 0.46))
+  dev.off()
+
+}
+
+
