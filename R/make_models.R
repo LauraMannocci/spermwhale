@@ -165,7 +165,7 @@ make_coefficients_plot <- function(df_coef, ylim, sensitivity = FALSE){
     ggplot2::xlab("Predictors") +
     ggplot2::ylab("Coefficient") +
     ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
-    ggplot2::scale_colour_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+    ggplot2::scale_colour_manual(values = c("#a1d76a", "#e9a3c9"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
                                                                                                  label.position="left", label.hjust = 0.5, label.vjust = 0,
                                                                                                  label.theme = ggplot2::element_text(angle = 0)))
 
@@ -208,10 +208,11 @@ make_coefficients_barplot <- function(df_coef, ylim, sensitivity = FALSE){
                    legend.position = "right",
                    legend.text = ggplot2::element_text(size=24),
                    axis.text.y = ggplot2::element_text(size=16),
-                   axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust=1, size = 18)) +
+                   axis.text.x = ggplot2::element_text(vjust = 0.5, size = 20)) +
+    ggplot2::scale_x_discrete(labels=c("depth", "dist. to \n1000m \nisobath", "dist. to \nseamounts", "dist. to \nridges", " slope")) +
     ggplot2::ylab("Coefficients") +
     ggplot2::geom_hline(yintercept=0, linetype="dashed", color = "black", size=.5) +
-    ggplot2::scale_fill_manual(values = c("#00BA38", "#F8766D"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
+    ggplot2::scale_fill_manual(values = c("#a1d76a", "#e9a3c9"), guide = ggplot2::guide_legend(ncol = 1, direction = "horizontal",
                                                                                                label.position="right"))
 
   if (sensitivity == TRUE){
@@ -306,12 +307,27 @@ plot_partial_curves_together <- function (dathis, datmod, var_name, sensitivity 
     max <- max(dat_his[[var_name]], dat_mod[[var_name]])
   }
 
+  # title
+  if (var_name == "di_1000m"){
+    xaxis <- "dist. to 1000m isobath"
+  }
+  if (var_name == "di_seaM"){
+    xaxis <- "dist. to seamounts"
+  }
+  if (var_name == "di_spRid"){
+    xaxis <- "dist. to ridges"
+  }
+  if (var_name %in% c("depth", "slope")){
+    xaxis <- var_name
+  }
+
+
   p <- ggplot2::ggplot(dat_his[[var_name]], ggplot2::aes(y = pred, x = get(var_name))) +
-    ggplot2::geom_line(color = "#00BA38", size = 2) +
-    ggplot2::geom_line(data = dat_mod[[var_name]], color = "#F8766D",  size = 2) +
+    ggplot2::geom_line(color = "#a1d76a", size = 2) +
+    ggplot2::geom_line(data = dat_mod[[var_name]], color = "#e9a3c9",  size = 2) +
     ggplot2::ylim(0,1) +
     ggplot2::ylab("Predictions") +
-    ggplot2::xlab(var_name) +
+    ggplot2::xlab(xaxis) +
     ggplot2::scale_x_continuous(limits = c(min, max)) +
     ggplot2::theme(text = ggplot2::element_text(size=20),
                    panel.background = ggplot2::element_blank(),
@@ -438,7 +454,7 @@ predictor_violin_occurrences <- function(modhis, var, ylabel) {
   if(pval <= 0.001) {signif <- "***"}
 
   p <- ggplot2::ggplot(modhis, ggplot2::aes(x = type, y = get(var), color = type)) +
-    ggplot2::geom_violin() +
+    ggplot2::geom_violin(linewidth = 2) +
     ggplot2::geom_jitter(shape = 16, size = 1, position = ggplot2::position_jitter(0.2), alpha = 0.4) +
     ggplot2::geom_boxplot(width = 0.1, fill = "white") +
     ggplot2::stat_summary(fun = mean, color = "black", geom="text", size = 5, ggplot2::aes(label=round(..y.., digits=0))) +
@@ -450,7 +466,7 @@ predictor_violin_occurrences <- function(modhis, var, ylabel) {
                    legend.position = "none",
                    axis.text = ggplot2::element_text(size = 20),
                    axis.title = ggplot2::element_text(size = 20)) +
-    ggplot2::scale_color_manual(values = c("#00BA38", "#F8766D"))
+    ggplot2::scale_color_manual(values = c("#e9a3c9","#a1d76a"))
 
   ggplot2::ggsave(here::here("outputs", paste0("predictors_violin_occurrences_", var, ".png")), p, width = 9, height = 7)
 
@@ -2398,7 +2414,7 @@ barplot_predictions_in_out_mpas_above_threshold <- function(pred_mod, pred_his, 
     ggplot2::xlab("") +
     ggplot2::scale_x_discrete(labels=c("Modern", "Historical")) +
     ggplot2::ylab("Number of cells with high relative habitat suitability") +
-    ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
+    ggplot2::scale_fill_manual(values = c("#e9a3c9","#a1d76a")) +
     ggplot2::scale_alpha_manual(values = c(1, .3)) +
     ggplot2::theme_light() +
     ggplot2::theme(legend.position = 'none',

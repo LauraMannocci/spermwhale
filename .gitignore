@@ -11,8 +11,6 @@ spermwhale.Rproj
 
 manuscript/
 papers/
-old_stuff/
-outputs_old/
 data/
 man/
 
@@ -27,3 +25,4 @@ man/
 make_for_pc.RData
 make_for_server.RData
 make_for_server.R
+make_Laura_steps.R

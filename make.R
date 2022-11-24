@@ -6,10 +6,6 @@ devtools::load_all()
 
 
 
-#save / load rdata
-#load(here::here("make.RData"))
-#save(df_predMod, df_extraMod, df_predHis, df_extraHis, BgMod.z, BgHis.z, predHis, predMod, SPMod.x, SPHis.x, opt.seqMod, opt.seqHis, mod.seqHis, mod.seqMod, file = here::here("make.RData"))
-
 
 
 
@@ -379,11 +375,11 @@ coefBar <- make_coefficients_barplot(Coef, c(-0.004, 0.002))
 
 # on separate plots
 jpeg(here::here("outputs", "partial_plot_historical.jpeg"), width = 1000, height = 700)
-plot_partial_curves(mod.seqHis, type = "cloglog", lwd = 5, col = "#F8766D")
+plot_partial_curves(mod.seqHis, type = "cloglog", lwd = 5, col = "#e9a3c9")
 dev.off()
 
 jpeg(here::here("outputs", "partial_plot_modern.jpeg"), width = 1000, height = 700)
-plot_partial_curves(mod.seqMod, type = "cloglog", lwd = 5, col = "#00BA38")
+plot_partial_curves(mod.seqMod, type = "cloglog", lwd = 5, col = "#a1d76a")
 dev.off()
 
 
@@ -471,12 +467,10 @@ res <- plot_predictions_residuals(wio, predHis, predMod)
 
 ####################  VISUALISE EXTRAPOLATION EXTENT  -------------------------------------
 
-# get multidimensional extrapolation extent - the next two lines of code take a few minutes to run on 50 threads on a server
+# get multidimensional extrapolation extent - IMPORTANT the next two lines of code take a few minutes to run on 50 threads on a server
 # but they will crash a laptop computer
-# so here we load df_extraMod and df_extraHis objects generated on a server
-load(("make_for_pc.RData"))
-# df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
-# df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
+df_extraMod <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgMod.z, "modern")
+df_extraHis <- get_extra_extent(c("depth",  "slope",    "di_1000m",  "di_seaM", "di_spRid"), modelStack, BgHis.z, "historical")
 
 
 # Plot predictions with extrapolation extent
@@ -521,7 +515,7 @@ df_mpa <- df_mpa %>%
 
 dens_mpa_region <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill = model, alpha = type, linetype = type, scale = 0.9)) +
   ggridges::geom_density_ridges() +
-  ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
+  ggplot2::scale_fill_manual(values = c("#e9a3c9","#a1d76a")) +
   ggplot2::scale_alpha_manual(values = c(1, .2)) +
   ggplot2::xlab('Habitat suitability') +
   ggplot2::ylab("") +
@@ -551,7 +545,7 @@ df_mpa <- df_mpa %>%
 
 dens_mpa_out <- ggplot2::ggplot(data = df_mpa, ggplot2::aes(x = value, y = model, fill = model, alpha = type, linetype = type, scale = 0.9)) +
   ggridges::geom_density_ridges() +
-  ggplot2::scale_fill_manual(values = c("#F8766D","#00BA38")) +
+  ggplot2::scale_fill_manual(values = c("#e9a3c9","#a1d76a")) +
   ggplot2::scale_alpha_manual(values = c(1, .2)) +
   ggplot2::xlab('Habitat suitability') +
   ggplot2::ylab("") +
