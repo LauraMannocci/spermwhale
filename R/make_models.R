@@ -2518,12 +2518,13 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
     #ask extrapolation mask
     ggplot2::geom_tile(data = df_extra, ggplot2::aes(x = x, y = y), fill = "grey30") +
     #add mpas
-    ggplot2::geom_sf(data = mpa, color = "black", fill = NA, size = 0.6) +
+    ggplot2::geom_sf(data = mpa, color = "black", fill = NA, linewidth = 0.6) +
     #add countries
-    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
+    ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", linewidth = 0.2) +
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
     ggplot2::scale_fill_manual(values = c("lost" = "#fdae61", "gained" ="#2b83ba"),
+                               breaks = c("lost", "gained"),
                                labels = c("Lost high \nsuitability", "Gained high \nsuitability"),
                                name = "") +
     ggplot2::theme(legend.justification = "left",
