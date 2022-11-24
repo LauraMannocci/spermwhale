@@ -627,7 +627,7 @@ df$model <- factor(df$model , levels=c("Lost", "Gained"))
 
 densLostGained <- ggplot2::ggplot(data = df, ggplot2::aes(x = di_coast, y = model, fill = model, scale = 0.5)) +
       ggridges::geom_density_ridges(panel_scaling = FALSE) +
-      ggplot2::scale_fill_manual(values = c("orange","blue")) +
+      ggplot2::scale_fill_manual(values = c("#fdae61", "#2b83ba")) +
       ggplot2::scale_x_continuous(breaks = seq(0, 2800, 400)) +
       ggplot2::xlab('Distance to coast (km)') +
       ggplot2::ylab("") +

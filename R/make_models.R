@@ -829,6 +829,7 @@ plot_predictions_with_extra_mpas <- function(wio, df_pred, type, df_test, mpa){
                    axis.text = ggplot2::element_text(size = 10),
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.background = ggplot2::element_rect(fill = "white"),
                    panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, "_mpas.png")), g, width = 9, height = 7)
@@ -2298,6 +2299,7 @@ plot_predictions_with_extra_mpas_above_threshold <- function(wio, df_pred, type,
                    axis.text = ggplot2::element_text(size = 10),
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.background = ggplot2::element_rect(fill = "white"),
                    panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", paste0("map_predictions_with_extra_", type, "_mpas_above_threshold.png")), g, width = 9, height = 7)
@@ -2521,7 +2523,7 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
     ggplot2::geom_sf(data = wio, color = "white", fill = "grey80", size = 0.2) +
     ggplot2::coord_sf(xlim = c(26, 85), ylim = c(-40, 25), expand = FALSE) +
     ggplot2::ylab("")+
-    ggplot2::scale_fill_manual(values = c("lost" = "orange", "gained" ="blue"),
+    ggplot2::scale_fill_manual(values = c("lost" = "#fdae61", "gained" ="#2b83ba"),
                                labels = c("Lost high \nsuitability", "Gained high \nsuitability"),
                                name = "") +
     ggplot2::theme(legend.justification = "left",
@@ -2530,6 +2532,7 @@ plot_predictions_lost_gained <- function(pred_mod, pred_his, sss_mod, sss_his, d
                    axis.text = ggplot2::element_text(size = 10),
                    legend.margin = ggplot2::margin(0,0,0,0),
                    legend.box.margin = ggplot2::margin(-6,-10,-6,-10),
+                   panel.background = ggplot2::element_rect(fill = "white"),
                    panel.border = ggplot2::element_rect(colour = "black", fill = NA))
 
   ggplot2::ggsave(here::here("outputs", "map_predictions_lost_gained.png"), g, width = 9, height = 7)
