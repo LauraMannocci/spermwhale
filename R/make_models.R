@@ -466,7 +466,7 @@ predictor_violin_occurrences <- function(modhis, var, ylabel) {
                    legend.position = "none",
                    axis.text = ggplot2::element_text(size = 20),
                    axis.title = ggplot2::element_text(size = 20)) +
-    ggplot2::scale_color_manual(values = c("#e9a3c9","#a1d76a"))
+    ggplot2::scale_color_manual(values = c("#a1d76a", "#e9a3c9"), labels = c("Historical", "Modern"))
 
   ggplot2::ggsave(here::here("outputs", paste0("predictors_violin_occurrences_", var, ".png")), p, width = 9, height = 7)
 
