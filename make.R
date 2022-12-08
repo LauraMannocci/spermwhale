@@ -200,6 +200,19 @@ cowplot::ggdraw() +
 dev.off()
 
 
+pdf(here::here("outputs", "figure3.pdf"), width = 15, height = 12.5)
+cowplot::ggdraw() +
+  cowplot::draw_plot(depthP, 0.005, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(slopeP, 0.34, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(di_1000mP, 0.67, 0.55, 0.32, 0.4) +
+  cowplot::draw_plot(di_seaMP, 0.005, 0.1, 0.32, 0.4) +
+  cowplot::draw_plot(di_spRidP, 0.34, 0.1, 0.32, 0.4) +
+  cowplot::draw_text("(a)", x = 0.03, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.35, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.69, y = 0.94, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.03, y = 0.49, size = 25, fontface = "italic") +
+  cowplot::draw_text("(e)", x = 0.35, y = 0.49, size = 25, fontface = "italic")
+dev.off()
 
 
 
@@ -405,6 +418,22 @@ dev.off()
 
 # multiplot partial plots and barplot
 jpeg(here::here("outputs", "figure4.jpeg"), width = 1400, height = 1400)
+cowplot::ggdraw() +
+  cowplot::draw_plot(coefBar, 0.08, 0.52, 0.9, 0.47) +
+  cowplot::draw_plot(p1, 0.05, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p2, 0.38, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p3, 0.71, 0.25, 0.25, 0.25) +
+  cowplot::draw_plot(p4, 0.05, 0, 0.25, 0.25) +
+  cowplot::draw_plot(p5, 0.38, 0, 0.25, 0.25) +
+  cowplot::draw_text("(a)", x = 0.08, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.04, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.37, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.7, y = 0.48, size = 25, fontface = "italic") +
+  cowplot::draw_text("(e)", x = 0.04, y = 0.23, size = 25, fontface = "italic") +
+  cowplot::draw_text("(f)", x = 0.37, y = 0.23, size = 25, fontface = "italic")
+dev.off()
+
+pdf(here::here("outputs", "figure4.pdf"), width = 18, height = 12)
 cowplot::ggdraw() +
   cowplot::draw_plot(coefBar, 0.08, 0.52, 0.9, 0.47) +
   cowplot::draw_plot(p1, 0.05, 0.25, 0.25, 0.25) +
@@ -655,6 +684,17 @@ cowplot::ggdraw() +
   cowplot::draw_text("(d)", x = 0.48, y = 0.47, size = 25, fontface = "italic")
 dev.off()
 
+pdf(here::here("outputs", "figure5.pdf"), width = 16, height = 12)
+cowplot::ggdraw() +
+  cowplot::draw_plot(gHis, 0.02, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gMod, 0.46, 0.52, 0.46, 0.46) +
+  cowplot::draw_plot(gHis_above, 0.02, 0.02, 0.46, 0.46) +
+  cowplot::draw_plot(gMod_above, 0.46, 0.02, 0.46, 0.46) +
+  cowplot::draw_text("(a)", x = 0.06, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.48, y = 0.97, size = 25, fontface = "italic") +
+  cowplot::draw_text("(c)", x = 0.06, y = 0.47, size = 25, fontface = "italic") +
+  cowplot::draw_text("(d)", x = 0.48, y = 0.47, size = 25, fontface = "italic")
+dev.off()
 
 jpeg(here::here("outputs", "figure6.jpeg"), width = 1320, height = 600)
 cowplot::ggdraw() +
@@ -664,6 +704,13 @@ cowplot::ggdraw() +
   cowplot::draw_text("(b)", x = 0.52, y = 0.87, size = 25, fontface = "italic")
 dev.off()
 
+pdf(here::here("outputs", "figure6.pdf"), width = 14, height = 9)
+cowplot::ggdraw() +
+  cowplot::draw_plot(dens_mpa_out, 0.02, 0.12, 0.46, 0.76) +
+  cowplot::draw_plot(barplot_inout_mpas, 0.50, 0.12, 0.46, 0.76) +
+  cowplot::draw_text("(a)", x = 0.06, y = 0.87, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.52, y = 0.87, size = 25, fontface = "italic")
+dev.off()
 
 jpeg(here::here("outputs", "figure7.jpeg"), width = 1320, height = 600)
 cowplot::ggdraw() +
@@ -671,6 +718,14 @@ cowplot::ggdraw() +
   cowplot::draw_plot(densLostGained, 0.45, 0.10, 0.46, 0.76) +
   cowplot::draw_text("(a)", x = 0.04, y = 0.87, size = 25, fontface = "italic") +
   cowplot::draw_text("(b)", x = 0.48, y = 0.87, size = 25, fontface = "italic")
+dev.off()
+
+pdf(here::here("outputs", "figure7.pdf"), width = 16, height = 9)
+cowplot::ggdraw() +
+  cowplot::draw_plot(gLostGained, 0.04, 0.12, 0.46, 0.76) +
+  cowplot::draw_plot(densLostGained, 0.51, 0.10, 0.46, 0.76) +
+  cowplot::draw_text("(a)", x = 0.04, y = 0.87, size = 25, fontface = "italic") +
+  cowplot::draw_text("(b)", x = 0.53, y = 0.87, size = 25, fontface = "italic")
 dev.off()
 
 
